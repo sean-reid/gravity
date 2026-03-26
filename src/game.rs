@@ -1723,7 +1723,7 @@ impl Game {
                 self.player.alive = false;
 
                 let stats = self.build_current_stats();
-                self.screen_cooldown = 0.5;
+                self.screen_cooldown = 1.5;
                 self.state = GameState::Death {
                     cause: DeathCause::Spaghettified,
                     stats,
@@ -1779,7 +1779,7 @@ impl Game {
             self.player.alive = false;
             audio.play_sound(SoundEvent::WarningEscapeVelocity);
             let stats = self.build_current_stats();
-            self.screen_cooldown = 0.5;
+            self.screen_cooldown = 1.5;
             self.state = GameState::Death {
                 cause: DeathCause::LostToVoid,
                 stats,
@@ -1920,7 +1920,7 @@ impl Game {
 
                 if self.player.is_dead() {
                     let stats = self.build_current_stats();
-                    self.screen_cooldown = 0.5;
+                    self.screen_cooldown = 1.5;
                     self.state = GameState::Death {
                         cause: DeathCause::Weapon(proj_type),
                         stats,
@@ -2202,7 +2202,7 @@ impl Game {
             self.online.fetch_leaderboard(config.seed, 10);
         }
 
-        self.screen_cooldown = 0.5; // prevent held fire from skipping
+        self.screen_cooldown = 1.5; // prevent held fire from skipping
         self.state = GameState::LevelClear {
             stats,
             score,
