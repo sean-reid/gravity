@@ -701,8 +701,12 @@ impl Game {
                         self.needs_save = true;
                         self.state = GameState::Title;
 
-                        // Register with online leaderboard
-                        if !self.online.is_registered() {
+                        if self.online.is_registered() {
+                            // Already registered — update name on server
+                            self.online.set_display_name(name.clone());
+                            self.online.update_display_name(name);
+                        } else {
+                            // First time — register with this name
                             self.online.set_display_name(name);
                             self.online.register();
                         }
