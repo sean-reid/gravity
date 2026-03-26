@@ -3104,7 +3104,60 @@ impl Game {
             dpi_scale: self.dpi_scale,
         };
 
-        build_hud(&hud_state)
+        let mut elements = build_hud(&hud_state);
+
+        // Radio chatter overlay (top-center during gameplay)
+        if let Some((speaker, text)) = self.radio.get_display_text() {
+            if !text.is_empty() {
+                let s = self.dpi_scale;
+                let vw = self.camera.viewport_width;
+                let radio_scale = 1.8 * s;
+                let char_w = 8.0 * radio_scale;
+
+                // Speaker tag
+                let speaker_str = format!("[{}]", speaker.name());
+                let speaker_color = speaker.color();
+                let speaker_w = speaker_str.len() as f32 * char_w;
+                let x = (vw - speaker_w) * 0.5;
+                let y = 60.0 * s;
+
+                // Dark background behind radio text
+                let max_line_chars = ((vw * 0.7) / char_w) as usize;
+                let max_line_chars = max_line_chars.max(20);
+                let lines = wrap_text(text, max_line_chars);
+                let line_h = 14.0 * radio_scale;
+                let total_h = line_h * (lines.len() + 1) as f32 + 16.0 * s;
+                let bg_w = vw * 0.75;
+                let bg_x = (vw - bg_w) * 0.5;
+
+                elements.push(HudElement::Rect {
+                    x: bg_x, y: y - 8.0 * s,
+                    w: bg_w, h: total_h,
+                    color: [0.0, 0.0, 0.0, 0.6],
+                });
+
+                elements.push(HudElement::Text {
+                    x, y,
+                    text: speaker_str,
+                    color: speaker_color,
+                    scale: radio_scale,
+                });
+
+                let text_x = bg_x + 12.0 * s;
+                let mut text_y = y + line_h;
+                for line in lines {
+                    elements.push(HudElement::Text {
+                        x: text_x, y: text_y,
+                        text: line,
+                        color: [0.85, 0.85, 0.85, 1.0],
+                        scale: radio_scale,
+                    });
+                    text_y += line_h;
+                }
+            }
+        }
+
+        elements
     }
 }
 
