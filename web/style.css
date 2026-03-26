@@ -1,0 +1,45 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #000;
+    color: #ccc;
+    font-family: monospace;
+}
+
+canvas {
+    display: block;
+    touch-action: none;
+    outline: none;
+    border: none;
+    /* Size controlled by Rust — no CSS sizing here */
+}
+
+#mobile-block {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    text-align: center;
+    padding: 2rem;
+}
+
+#mobile-block h1 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    letter-spacing: 0.15em;
+}
+
+#mobile-block p {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: #888;
+}

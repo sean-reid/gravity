@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gravity Well Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="mobile-block">
+        <h1>GRAVITY WELL ARENA</h1>
+        <p>This game requires a keyboard and mouse.</p>
+        <p>Please visit on a desktop browser.</p>
+    </div>
+    <canvas id="game-canvas" tabindex="0"></canvas>
+    <script>
+        // Block mobile/tablet
+        const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+            || (navigator.maxTouchPoints > 0 && !window.matchMedia('(pointer: fine)').matches);
+        if (isMobile) {
+            document.getElementById('game-canvas').style.display = 'none';
+            document.getElementById('mobile-block').style.display = 'flex';
+        } else {
+            document.getElementById('mobile-block').style.display = 'none';
+        }
+    </script>
+    <script type="module" src="bootstrap.js"></script>
+</body>
+</html>

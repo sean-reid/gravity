@@ -1,0 +1,60 @@
+[package]
+name = "gravity-well-arena"
+version = "0.1.0"
+edition = "2021"
+description = "A single-player, top-down, real-time combat game built around orbital mechanics and relativistic time dilation"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["native"]
+native = ["cpal", "dirs", "ureq"]
+web = ["wasm-bindgen", "web-sys", "js-sys", "console_log", "console_error_panic_hook", "wasm-bindgen-futures", "getrandom/js"]
+
+[dependencies]
+wgpu = "23"
+winit = { version = "0.30", features = ["rwh_06"] }
+bytemuck = { version = "1", features = ["derive"] }
+pollster = "0.4"
+log = "0.4"
+env_logger = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+getrandom = "0.2"
+
+# Native-only
+cpal = { version = "0.15", optional = true }
+dirs = { version = "5", optional = true }
+ureq = { version = "2", optional = true }
+
+# Web-only
+wasm-bindgen = { version = "0.2", optional = true }
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = [
+    "Window", "Document", "HtmlCanvasElement", "Element",
+    "AudioContext", "AudioDestinationNode", "AudioNode", "AudioParam",
+    "AudioScheduledSourceNode",
+    "OscillatorNode", "GainNode", "BiquadFilterNode",
+    "OscillatorType", "BiquadFilterType",
+    "Storage", "Performance",
+    "Touch", "TouchEvent", "TouchList",
+    "KeyboardEvent", "MouseEvent", "WheelEvent",
+    "console",
+    "Request", "RequestInit", "RequestMode", "Response", "Headers",
+] }
+js-sys = { version = "0.3", optional = true }
+console_log = { version = "1", optional = true }
+console_error_panic_hook = { version = "0.1", optional = true }
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.release.package."*"]
+opt-level = 3
