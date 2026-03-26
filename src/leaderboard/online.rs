@@ -11,7 +11,7 @@ use std::sync::mpsc;
 // ---------------------------------------------------------------------------
 
 /// Default base URL for the Cloudflare Worker leaderboard API.
-pub const DEFAULT_BASE_URL: &str = "https://gravity-well-arena-leaderboard.workers.dev";
+pub const DEFAULT_BASE_URL: &str = "https://gravity-well-arena-leaderboard.seanreid.workers.dev";
 
 // ---------------------------------------------------------------------------
 // Public types

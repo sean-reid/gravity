@@ -8,5 +8,5 @@ command = "cargo install worker-build && worker-build --release"
 [[d1_databases]]
 binding = "DB"
 database_name = "gravity-leaderboard"
-database_id = "placeholder-replace-with-actual-id"
+database_id = "dfeef3b3-f948-478f-bc96-a559e402869f"
 migrations_dir = "migrations"
