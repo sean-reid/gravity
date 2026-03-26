@@ -22,7 +22,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact: gravity-well-arena-macos-arm64
             binary: gravity-well-arena
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             artifact: gravity-well-arena-macos-x86_64
             binary: gravity-well-arena
