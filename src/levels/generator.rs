@@ -6,8 +6,10 @@ use crate::weapons::WeaponType;
 use super::config::{LevelConfig, BlackHoleConfig, BotSpawn};
 use super::difficulty::{max_dilation_for_level, bot_count_for_level};
 
-/// Primary Schwarzschild radius used as the unit reference.
-const PRIMARY_RS: f64 = 1.0;
+/// Primary Schwarzschild radius. Larger values create stronger dilation
+/// at gameplay distances. At 3.0, a player at r=8 experiences tau=0.79 (1.27x),
+/// at r=5 experiences tau=0.63 (1.58x), at r=4 experiences tau=0.50 (2.0x).
+const PRIMARY_RS: f64 = 3.0;
 
 /// Generate a complete level configuration from a level number and base seed.
 pub fn generate_level(level_number: u32, base_seed: u64) -> LevelConfig {

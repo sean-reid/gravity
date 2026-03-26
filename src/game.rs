@@ -2167,6 +2167,11 @@ impl Game {
             }
         }
 
+        // Fetch online leaderboard for this level's seed
+        if let Some(config) = &self.level_config {
+            self.online.fetch_leaderboard(config.seed, 10);
+        }
+
         self.state = GameState::LevelClear {
             stats,
             score,
@@ -2636,12 +2641,13 @@ impl Game {
             color: [0.0, 0.02, 0.05, 0.8],
         });
 
+        // Title
         let title = "LEVEL CLEAR";
         let title_scale = 3.0 * s;
         let title_w = title.len() as f32 * 8.0 * title_scale;
         els.push(HudElement::Text {
             x: (vw - title_w) * 0.5,
-            y: vh * 0.2,
+            y: 30.0 * s,
             text: title.to_string(),
             color: [0.2, 1.0, 0.4, 1.0],
             scale: title_scale,
@@ -2653,17 +2659,31 @@ impl Game {
         let score_w = score_text.len() as f32 * 8.0 * score_scale;
         els.push(HudElement::Text {
             x: (vw - score_w) * 0.5,
-            y: vh * 0.32,
+            y: 30.0 * s + 14.0 * title_scale + 10.0 * s,
             text: score_text,
             color: [1.0, 0.9, 0.2, 1.0],
             scale: score_scale,
         });
 
-        // Stats
-        let stat_scale = 1.8 * s;
-        let margin = 80.0 * s;
-        let line_h = 16.0 * stat_scale;
-        let mut y = vh * 0.42;
+        // Rank from online submission
+        if let Some((rank, total)) = self.online.last_rank {
+            let rank_text = format!("RANK: #{} of {}", rank, total);
+            let rank_scale = 1.8 * s;
+            let rank_w = rank_text.len() as f32 * 8.0 * rank_scale;
+            els.push(HudElement::Text {
+                x: (vw - rank_w) * 0.5,
+                y: 30.0 * s + 14.0 * title_scale + 14.0 * score_scale + 16.0 * s,
+                text: rank_text,
+                color: [0.2, 0.9, 1.0, 1.0],
+                scale: rank_scale,
+            });
+        }
+
+        // Left column: stats
+        let stat_scale = 1.5 * s;
+        let left_margin = 40.0 * s;
+        let line_h = 14.0 * stat_scale + 4.0 * s;
+        let mut y = vh * 0.38;
 
         let dilation = if stats.proper_time > 0.0 {
             stats.coordinate_time / stats.proper_time
@@ -2673,16 +2693,24 @@ impl Game {
 
         let stat_lines = [
             format!("PROPER TIME: {:.1}s", stats.proper_time),
-            format!("COORD TIME:  {:.1}s (DILATION {:.1}x)", stats.coordinate_time, dilation),
-            format!("BOTS KILLED: {} ({} SPAGHETTIFIED)", stats.bots_killed, stats.bots_spaghettified),
+            format!("COORD TIME:  {:.1}s ({:.1}x)", stats.coordinate_time, dilation),
+            format!("BOTS KILLED: {}", stats.bots_killed),
+            format!("SPAGHETTIFIED: {}", stats.bots_spaghettified),
             format!("ACCURACY: {:.0}%", if stats.shots_fired > 0 { stats.shots_hit as f64 / stats.shots_fired as f64 * 100.0 } else { 0.0 }),
-            format!("HEALTH REMAINING: {:.0}", stats.health_remaining),
-            format!("DEEPEST APPROACH: {:.1} Rs", stats.deepest_altitude),
+            format!("HEALTH: {:.0}", stats.health_remaining),
+            format!("DEEPEST: {:.1} Rs", stats.deepest_altitude),
         ];
+
+        els.push(HudElement::Text {
+            x: left_margin, y: y - line_h,
+            text: "YOUR STATS".to_string(),
+            color: [0.6, 0.6, 0.6, 1.0],
+            scale: stat_scale,
+        });
 
         for line in &stat_lines {
             els.push(HudElement::Text {
-                x: margin, y,
+                x: left_margin, y,
                 text: line.clone(),
                 color: [0.8, 0.8, 0.8, 1.0],
                 scale: stat_scale,
@@ -2690,12 +2718,63 @@ impl Game {
             y += line_h;
         }
 
-        let prompt = "PRESS ENTER FOR NEXT LEVEL";
-        let prompt_scale = 2.0 * s;
+        // Right column: online leaderboard
+        let lb_x = vw * 0.55;
+        let lb_scale = 1.5 * s;
+        let lb_line_h = 14.0 * lb_scale + 3.0 * s;
+        let mut lb_y = vh * 0.38;
+
+        let entries = &self.online.cached_leaderboard;
+        if !entries.is_empty() {
+            els.push(HudElement::Text {
+                x: lb_x, y: lb_y - lb_line_h,
+                text: "LEADERBOARD".to_string(),
+                color: [0.6, 0.6, 0.6, 1.0],
+                scale: lb_scale,
+            });
+
+            for entry in entries.iter().take(10) {
+                let is_me = self.online.player_id()
+                    .map(|id| id == entry.player_id)
+                    .unwrap_or(false);
+
+                let line = format!(
+                    "#{:<3} {:>7}  {}",
+                    entry.rank,
+                    entry.score,
+                    truncate_name(&entry.display_name, 12),
+                );
+
+                let color = if is_me {
+                    [0.0, 1.0, 1.0, 1.0] // cyan highlight for your entry
+                } else {
+                    [0.7, 0.7, 0.7, 1.0]
+                };
+
+                els.push(HudElement::Text {
+                    x: lb_x, y: lb_y,
+                    text: line,
+                    color,
+                    scale: lb_scale,
+                });
+                lb_y += lb_line_h;
+            }
+        } else {
+            els.push(HudElement::Text {
+                x: lb_x, y: lb_y,
+                text: "LOADING LEADERBOARD...".to_string(),
+                color: [0.4, 0.4, 0.4, 1.0],
+                scale: lb_scale,
+            });
+        }
+
+        // Bottom prompts
+        let prompt_scale = 1.8 * s;
+        let prompt = "ENTER - NEXT LEVEL";
         let prompt_w = prompt.len() as f32 * 8.0 * prompt_scale;
         els.push(HudElement::Text {
             x: (vw - prompt_w) * 0.5,
-            y: vh - 60.0 * s,
+            y: vh - 50.0 * s,
             text: prompt.to_string(),
             color: [0.6, 0.6, 0.6, 1.0],
             scale: prompt_scale,
@@ -2978,4 +3057,13 @@ fn wrap_text(text: &str, max_chars: usize) -> Vec<String> {
         lines.push(String::new());
     }
     lines
+}
+
+/// Truncate a name to max_len characters, appending ".." if truncated.
+fn truncate_name(name: &str, max_len: usize) -> String {
+    if name.len() <= max_len {
+        name.to_string()
+    } else {
+        format!("{}..", &name[..max_len.saturating_sub(2)])
+    }
 }

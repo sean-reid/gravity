@@ -9,9 +9,9 @@ pub fn difficulty(level: u32) -> f64 {
 }
 
 /// Maximum time-dilation factor for a given level.
-/// Starts at 1.3 and increases by 0.05 per level, capped at 6.0.
+/// Starts at 1.5 and ramps faster, capped at 6.0.
 pub fn max_dilation_for_level(level: u32) -> f64 {
-    let raw = 1.3 + level as f64 * 0.05;
+    let raw = 1.5 + level as f64 * 0.15;
     raw.min(6.0)
 }
 
