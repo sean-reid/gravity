@@ -194,6 +194,8 @@ pub struct Game {
     // Title screen: which level's leaderboard to show
     pub title_leaderboard_level: u32,
     pub title_leaderboard_fetched: bool,
+    // Cooldown timer to prevent held inputs from skipping screens
+    pub screen_cooldown: f64,
     // DPI scale factor for HUD sizing
     pub dpi_scale: f32,
     // Player callsign
@@ -249,6 +251,7 @@ impl Game {
             is_retry: false,
             title_leaderboard_level: 1,
             title_leaderboard_fetched: false,
+            screen_cooldown: 0.0,
             dpi_scale: 1.0,
             display_name: String::new(),
             name_entry: None,
@@ -523,6 +526,11 @@ impl Game {
 
         // Clamp large dt to prevent spiral of death
         let dt_wall = dt_wall.min(0.1);
+
+        // Tick down screen cooldown
+        if self.screen_cooldown > 0.0 {
+            self.screen_cooldown -= dt_wall;
+        }
 
         match self.state.clone() {
             GameState::NameEntry => {
@@ -1054,6 +1062,7 @@ impl Game {
     }
 
     fn update_death(&mut self, actions: &[InputAction], audio: &mut dyn AudioBackend) {
+        if self.screen_cooldown > 0.0 { return; }
         for action in actions {
             match action {
                 InputAction::Confirm | InputAction::Fire => {
@@ -1076,6 +1085,7 @@ impl Game {
     }
 
     fn update_level_clear(&mut self, actions: &[InputAction], audio: &mut dyn AudioBackend) {
+        if self.screen_cooldown > 0.0 { return; }
         for action in actions {
             if *action == InputAction::Confirm || *action == InputAction::Fire {
                 audio.play_sound(SoundEvent::UIConfirm);
@@ -1713,6 +1723,7 @@ impl Game {
                 self.player.alive = false;
 
                 let stats = self.build_current_stats();
+                self.screen_cooldown = 0.5;
                 self.state = GameState::Death {
                     cause: DeathCause::Spaghettified,
                     stats,
@@ -1768,6 +1779,7 @@ impl Game {
             self.player.alive = false;
             audio.play_sound(SoundEvent::WarningEscapeVelocity);
             let stats = self.build_current_stats();
+            self.screen_cooldown = 0.5;
             self.state = GameState::Death {
                 cause: DeathCause::LostToVoid,
                 stats,
@@ -1908,6 +1920,7 @@ impl Game {
 
                 if self.player.is_dead() {
                     let stats = self.build_current_stats();
+                    self.screen_cooldown = 0.5;
                     self.state = GameState::Death {
                         cause: DeathCause::Weapon(proj_type),
                         stats,
@@ -2189,6 +2202,7 @@ impl Game {
             self.online.fetch_leaderboard(config.seed, 10);
         }
 
+        self.screen_cooldown = 0.5; // prevent held fire from skipping
         self.state = GameState::LevelClear {
             stats,
             score,
