@@ -33,17 +33,17 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
             routes::submit_score(req, ctx.env).await
         })
         .get_async("/api/leaderboard/:seed", |req, ctx| async move {
-            let seed: i64 = ctx
+            let seed: u64 = ctx
                 .param("seed")
                 .ok_or_else(|| Error::RustError("Missing seed parameter".into()))?
                 .parse()
                 .map_err(|_| Error::RustError("Invalid seed parameter".into()))?;
-            routes::get_leaderboard(req, ctx.env, seed).await
+            routes::get_leaderboard(req, ctx.env, seed as i64).await
         })
         .get_async(
             "/api/leaderboard/:seed/around/:player_id",
             |req, ctx| async move {
-                let seed: i64 = ctx
+                let seed: u64 = ctx
                     .param("seed")
                     .ok_or_else(|| Error::RustError("Missing seed parameter".into()))?
                     .parse()
@@ -52,7 +52,7 @@ async fn main(req: Request, env: Env, _ctx: Context) -> Result<Response> {
                     .param("player_id")
                     .ok_or_else(|| Error::RustError("Missing player_id parameter".into()))?
                     .to_string();
-                routes::get_leaderboard_around(req, ctx.env, seed, player_id).await
+                routes::get_leaderboard_around(req, ctx.env, seed as i64, player_id).await
             },
         )
         .get_async("/api/player/:player_id/stats", |_req, ctx| async move {

@@ -94,7 +94,7 @@ pub async fn submit_score(mut req: Request, env: Env) -> Result<Response> {
         Err(e) => return error_response(&format!("Database error: {}", e), 500),
     }
 
-    let seed = body.seed;
+    let seed = body.seed as i64;
     let score = body.score;
     let player_id = body.player_id.clone();
 

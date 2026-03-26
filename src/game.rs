@@ -191,6 +191,9 @@ pub struct Game {
     pub beam_segments: Vec<BeamSegment>,
     // State for retry
     pub is_retry: bool,
+    // Title screen: which level's leaderboard to show
+    pub title_leaderboard_level: u32,
+    pub title_leaderboard_fetched: bool,
     // DPI scale factor for HUD sizing
     pub dpi_scale: f32,
     // Player callsign
@@ -244,6 +247,8 @@ impl Game {
             beam_active: false,
             beam_segments: Vec::new(),
             is_retry: false,
+            title_leaderboard_level: 1,
+            title_leaderboard_fetched: false,
             dpi_scale: 1.0,
             display_name: String::new(),
             name_entry: None,
@@ -702,21 +707,32 @@ impl Game {
     }
 
     fn update_title(&mut self, actions: &[InputAction], audio: &mut dyn AudioBackend) {
+        // Fetch leaderboard for the displayed level on first frame
+        if !self.title_leaderboard_fetched {
+            self.title_leaderboard_level = (self.progression.highest_level + 1).max(1);
+            let config = generate_level(self.title_leaderboard_level, self.base_seed);
+            self.online.fetch_leaderboard(config.seed, 10);
+            self.title_leaderboard_fetched = true;
+        }
+
         for action in actions {
             match action {
                 InputAction::Confirm | InputAction::Fire => {
                     audio.play_sound(SoundEvent::UIConfirm);
+                    self.title_leaderboard_fetched = false;
                     let next_level = self.progression.highest_level + 1;
                     self.start_level(next_level.max(1));
                     return;
                 }
                 InputAction::NewGame => {
                     audio.play_sound(SoundEvent::UIConfirm);
+                    self.title_leaderboard_fetched = false;
                     self.new_game();
                     return;
                 }
                 InputAction::ChangeCallsign => {
                     audio.play_sound(SoundEvent::UIConfirm);
+                    self.title_leaderboard_fetched = false;
                     self.name_entry = Some(NameEntryState::new());
                     self.state = GameState::NameEntry;
                     return;
@@ -1050,6 +1066,7 @@ impl Game {
                     audio.play_sound(SoundEvent::UIConfirm);
                     self.beam_active = false;
                     self.beam_segments.clear();
+                    self.title_leaderboard_fetched = false;
                     self.state = GameState::Title;
                     return;
                 }
@@ -1117,6 +1134,7 @@ impl Game {
                     audio.play_sound(SoundEvent::UIConfirm);
                     self.beam_active = false;
                     self.beam_segments.clear();
+                    self.title_leaderboard_fetched = false;
                     self.state = GameState::Title;
                     return;
                 }
@@ -2118,6 +2136,8 @@ impl Game {
         self.leaderboard.submit(entry);
 
         // Submit score online
+        log::info!("Level clear: online registered={}, player_id={:?}",
+            self.online.is_registered(), self.online.player_id());
         if self.online.is_registered() {
             let seed = self.level_config.as_ref().map(|c| c.seed).unwrap_or(0);
             self.online.submit_score(ScoreSubmission {
@@ -2397,71 +2417,114 @@ impl Game {
             color: [0.0, 0.0, 0.05, 0.85],
         });
 
-        // Title
+        // Title (centered)
         let title = "GRAVITY WELL ARENA";
         let title_scale = 3.5 * s;
         let title_w = title.len() as f32 * 8.0 * title_scale;
         els.push(HudElement::Text {
             x: (vw - title_w) * 0.5,
-            y: vh * 0.3,
+            y: 40.0 * s,
             text: title.to_string(),
             color: [1.0, 1.0, 1.0, 1.0],
             scale: title_scale,
         });
 
-        // Continue/start prompt
+        // Left side: menu options
+        let left_x = 60.0 * s;
+        let menu_scale = 1.8 * s;
+        let menu_line_h = 14.0 * menu_scale + 10.0 * s;
+        let mut my = vh * 0.35;
+
+        // Callsign
+        let callsign_text = format!("CALLSIGN: {}", self.display_name);
+        els.push(HudElement::Text {
+            x: left_x, y: my,
+            text: callsign_text,
+            color: [0.2, 0.9, 1.0, 1.0],
+            scale: menu_scale,
+        });
+        my += menu_line_h + 8.0 * s;
+
+        // Continue/start
         let prompt = if self.progression.highest_level > 0 {
             format!("ENTER - CONTINUE (LEVEL {})", self.progression.highest_level + 1)
         } else {
             "ENTER - START".to_string()
         };
-        let prompt_scale = 2.0 * s;
-        let prompt_w = prompt.len() as f32 * 8.0 * prompt_scale;
         els.push(HudElement::Text {
-            x: (vw - prompt_w) * 0.5,
-            y: vh * 0.55,
+            x: left_x, y: my,
             text: prompt,
-            color: [0.7, 0.7, 0.7, 1.0],
-            scale: prompt_scale,
+            color: [0.8, 0.8, 0.8, 1.0],
+            scale: menu_scale,
         });
+        my += menu_line_h;
 
-        // Callsign display
-        let callsign_text = format!("CALLSIGN: {}", self.display_name);
-        let cs_scale = 1.6 * s;
-        let cs_w = callsign_text.len() as f32 * 8.0 * cs_scale;
-        let mut opt_y = vh * 0.55 + 14.0 * prompt_scale + 16.0 * s;
+        let opt_scale = 1.5 * s;
+        let opt_line_h = 14.0 * opt_scale + 6.0 * s;
+
         els.push(HudElement::Text {
-            x: (vw - cs_w) * 0.5,
-            y: opt_y,
-            text: callsign_text,
-            color: [0.2, 0.9, 1.0, 1.0],
-            scale: cs_scale,
-        });
-        opt_y += 14.0 * cs_scale + 12.0 * s;
-
-        // Sub-options
-        let opt_scale = 1.4 * s;
-
-        let cc = "C - CHANGE CALLSIGN";
-        let cc_w = cc.len() as f32 * 8.0 * opt_scale;
-        els.push(HudElement::Text {
-            x: (vw - cc_w) * 0.5,
-            y: opt_y,
-            text: cc.to_string(),
+            x: left_x, y: my,
+            text: "C - CHANGE CALLSIGN".to_string(),
             color: [0.5, 0.5, 0.5, 0.7],
             scale: opt_scale,
         });
-        opt_y += 14.0 * opt_scale + 4.0 * s;
+        my += opt_line_h;
 
-        {
-            let ng = "N - NEW GAME";
-            let ng_w = ng.len() as f32 * 8.0 * opt_scale;
+        els.push(HudElement::Text {
+            x: left_x, y: my,
+            text: "N - NEW GAME".to_string(),
+            color: [0.5, 0.5, 0.5, 0.7],
+            scale: opt_scale,
+        });
+
+        // Right side: leaderboard
+        let lb_x = vw * 0.55;
+        let lb_scale = 1.5 * s;
+        let lb_line_h = 14.0 * lb_scale + 3.0 * s;
+        let mut lb_y = vh * 0.35;
+
+        let lb_title = format!("LEADERBOARD - LEVEL {}", self.title_leaderboard_level);
+        els.push(HudElement::Text {
+            x: lb_x, y: lb_y - lb_line_h,
+            text: lb_title,
+            color: [0.6, 0.6, 0.6, 1.0],
+            scale: lb_scale,
+        });
+
+        let entries = &self.online.cached_leaderboard;
+        if !entries.is_empty() {
+            for entry in entries.iter().take(10) {
+                let is_me = self.online.player_id()
+                    .map(|id| id == entry.player_id)
+                    .unwrap_or(false);
+
+                let line = format!(
+                    "#{:<3} {:>7}  {}",
+                    entry.rank,
+                    entry.score,
+                    truncate_name(&entry.display_name, 12),
+                );
+
+                let color = if is_me {
+                    [0.0, 1.0, 1.0, 1.0]
+                } else {
+                    [0.7, 0.7, 0.7, 1.0]
+                };
+
+                els.push(HudElement::Text {
+                    x: lb_x, y: lb_y,
+                    text: line,
+                    color,
+                    scale: lb_scale,
+                });
+                lb_y += lb_line_h;
+            }
+        } else {
             els.push(HudElement::Text {
-                x: (vw - ng_w) * 0.5,
-                y: opt_y,
-                text: ng.to_string(),
-                color: [0.5, 0.5, 0.5, 0.7],
-                scale: opt_scale,
+                x: lb_x, y: lb_y,
+                text: "NO SCORES YET".to_string(),
+                color: [0.4, 0.4, 0.4, 1.0],
+                scale: lb_scale,
             });
         }
 
