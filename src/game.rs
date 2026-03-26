@@ -2113,10 +2113,7 @@ impl Game {
             proper_time: stats.proper_time,
             accuracy: level_score.accuracy,
             health_remaining: level_score.health_remaining,
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or(0),
+            timestamp: platform_timestamp(),
         };
         self.leaderboard.submit(entry);
 
@@ -3057,6 +3054,21 @@ fn wrap_text(text: &str, max_chars: usize) -> Vec<String> {
         lines.push(String::new());
     }
     lines
+}
+
+/// Get a Unix timestamp (seconds since epoch), cross-platform.
+fn platform_timestamp() -> u64 {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        (js_sys::Date::now() / 1000.0) as u64
+    }
 }
 
 /// Truncate a name to max_len characters, appending ".." if truncated.
