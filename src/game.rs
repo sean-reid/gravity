@@ -2197,10 +2197,7 @@ impl Game {
             }
         }
 
-        // Fetch online leaderboard for this level's seed
-        if let Some(config) = &self.level_config {
-            self.online.fetch_leaderboard(config.seed, 10);
-        }
+        // Leaderboard will auto-fetch after score submission completes (see online.rs poll)
 
         self.screen_cooldown = 1.5; // prevent held fire from skipping
         self.state = GameState::LevelClear {

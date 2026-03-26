@@ -114,6 +114,8 @@ pub struct OnlineLeaderboard {
     // Public observable state --------------------------------------------------
     /// The rank returned by the most recent score submission: `(rank, total)`.
     pub last_rank: Option<(u64, u64)>,
+    /// Seed of the last submitted score, for auto-fetching leaderboard after submission.
+    last_submitted_seed: Option<u64>,
     /// The most recently fetched leaderboard page.
     pub cached_leaderboard: Vec<OnlineEntry>,
     /// Total entries reported by the last leaderboard fetch.
@@ -137,6 +139,7 @@ impl OnlineLeaderboard {
             result_receiver: rx,
             pending_submissions: Vec::new(),
             last_rank: None,
+            last_submitted_seed: None,
             cached_leaderboard: Vec::new(),
             cached_leaderboard_total: 0,
             status: OnlineStatus::Idle,
@@ -166,6 +169,10 @@ impl OnlineLeaderboard {
                 OnlineResult::ScoreSubmitted { rank, total } => {
                     log::info!("Online leaderboard: rank {rank}/{total}");
                     self.last_rank = Some((rank, total));
+                    // Auto-fetch leaderboard now that our score is in
+                    if let Some(seed) = self.last_submitted_seed {
+                        self.fetch_leaderboard(seed, 10);
+                    }
                 }
                 OnlineResult::LeaderboardFetched { entries, total } => {
                     self.cached_leaderboard = entries;
@@ -214,6 +221,7 @@ impl OnlineLeaderboard {
     /// Submit a score. If we are not yet registered the submission is queued
     /// and will be sent automatically once registration completes.
     pub fn submit_score(&mut self, mut submission: ScoreSubmission) {
+        self.last_submitted_seed = Some(submission.seed);
         match &self.player_id {
             Some(pid) => {
                 submission.player_id = pid.clone();
