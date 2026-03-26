@@ -11,7 +11,7 @@ pub struct RegisterRequest {
 pub struct SubmitScoreRequest {
     pub player_id: String,
     pub level_number: i64,
-    pub seed: f64, // u64 from client may exceed i64 range; use f64 for JSON compat
+    pub seed: i64,
     pub score: i64,
     pub proper_time: f64,
     pub coordinate_time: f64,

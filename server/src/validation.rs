@@ -54,7 +54,7 @@ mod tests {
         SubmitScoreRequest {
             player_id: "test-uuid".into(),
             level_number: 1,
-            seed: 12345.0,
+            seed: 12345,
             score: 1000,
             proper_time: 30.0,
             coordinate_time: 60.0,

@@ -85,8 +85,10 @@ impl SplitMix64 {
     }
 }
 
-/// Hash two u64 values together (for level seed computation)
+/// Hash two u64 values together (for level seed computation).
+/// Result is masked to 53 bits so it fits exactly in an f64,
+/// avoiding precision loss in JSON/JavaScript/SQLite.
 pub fn hash_seeds(a: u64, b: u64) -> u64 {
     let mut sm = SplitMix64(a.wrapping_mul(0x517CC1B727220A95).wrapping_add(b));
-    sm.next()
+    sm.next() & 0x1F_FFFF_FFFF_FFFF // 53-bit mask
 }
