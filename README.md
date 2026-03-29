@@ -1,5 +1,7 @@
 # Gravity Well Arena
 
+<a href="https://www.producthunt.com/products/gravity-well-arena?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-gravity-well-arena" target="_blank" rel="noopener noreferrer"><img alt="Gravity Well Arena - Combat game where time dilation is the core mechanic | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1110847&amp;theme=light&amp;t=1774823819512"></a>
+
 A single-player, top-down, real-time combat game built around orbital mechanics and relativistic time dilation. Pilot a ship in orbit around black holes, fighting AI-controlled bots where diving deep into a gravity well causes the universe to speed up around you.
 
 ## The Core Mechanic
