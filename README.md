@@ -143,10 +143,6 @@ gravity/
 └── README.md
 ```
 
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full technical specification covering physics, weapons, AI, rendering, audio, and narrative systems.
-
 ## License
 
 MIT — see [LICENSE](LICENSE).
