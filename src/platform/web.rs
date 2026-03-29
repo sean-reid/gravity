@@ -38,6 +38,7 @@ struct App {
     total_time: f32,
     gpu_state: GpuState,
     save_backend: WebSave,
+    needs_initial_resize: bool,
 }
 
 impl App {
@@ -54,6 +55,7 @@ impl App {
             total_time: 0.0,
             gpu_state: GpuState::NotStarted,
             save_backend: WebSave::new(),
+            needs_initial_resize: true,
         }
     }
 
@@ -198,7 +200,8 @@ impl ApplicationHandler for App {
                                 logical.to_physical(window.scale_factor());
                             let cur_w = renderer.surface_config.width;
                             let cur_h = renderer.surface_config.height;
-                            if physical.width != cur_w || physical.height != cur_h {
+                            if physical.width != cur_w || physical.height != cur_h || self.needs_initial_resize {
+                                self.needs_initial_resize = false;
                                 let w = physical.width.max(1);
                                 let h = physical.height.max(1);
 
