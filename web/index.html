@@ -13,16 +13,35 @@
         <p>This game requires a keyboard and mouse.</p>
         <p>Please visit on a desktop browser.</p>
     </div>
+    <div id="browser-block">
+        <h1>GRAVITY WELL ARENA</h1>
+        <p>This game requires WebGPU, which your browser doesn't support yet.</p>
+        <p>Please try one of the following:</p>
+        <ul>
+            <li><strong>Chrome</strong> (v113+)</li>
+            <li><strong>Edge</strong> (v113+)</li>
+            <li><strong>Safari</strong> (v18+, macOS Sonoma or iOS 18)</li>
+            <li><strong>Brave</strong> — enable WebGPU at <code>brave://flags/#enable-unsafe-webgpu</code></li>
+            <li><strong>Firefox</strong> — enable at <code>about:config</code> → <code>dom.webgpu.enabled = true</code></li>
+        </ul>
+        <p>Or download the <a href="https://github.com/sean-reid/gravity/releases">native build</a> for your platform.</p>
+    </div>
     <canvas id="game-canvas" tabindex="0"></canvas>
     <script>
-        // Block mobile/tablet
         const isMobile = /Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
             || (navigator.maxTouchPoints > 0 && !window.matchMedia('(pointer: fine)').matches);
+
         if (isMobile) {
             document.getElementById('game-canvas').style.display = 'none';
             document.getElementById('mobile-block').style.display = 'flex';
+            document.getElementById('browser-block').style.display = 'none';
+        } else if (!navigator.gpu) {
+            document.getElementById('game-canvas').style.display = 'none';
+            document.getElementById('mobile-block').style.display = 'none';
+            document.getElementById('browser-block').style.display = 'flex';
         } else {
             document.getElementById('mobile-block').style.display = 'none';
+            document.getElementById('browser-block').style.display = 'none';
         }
     </script>
     <script type="module" src="bootstrap.js"></script>

@@ -18,10 +18,9 @@ canvas {
     touch-action: none;
     outline: none;
     border: none;
-    /* Size controlled by Rust — no CSS sizing here */
 }
 
-#mobile-block {
+#mobile-block, #browser-block {
     display: none;
     flex-direction: column;
     align-items: center;
@@ -31,15 +30,38 @@ canvas {
     padding: 2rem;
 }
 
-#mobile-block h1 {
+#mobile-block h1, #browser-block h1 {
     color: #fff;
     font-size: 1.5rem;
     margin-bottom: 1rem;
     letter-spacing: 0.15em;
 }
 
-#mobile-block p {
+#mobile-block p, #browser-block p {
     font-size: 1rem;
     margin-bottom: 0.5rem;
     color: #888;
+}
+
+#browser-block ul {
+    list-style: none;
+    margin: 1rem 0;
+    text-align: left;
+}
+
+#browser-block li {
+    margin-bottom: 0.5rem;
+    color: #aaa;
+}
+
+#browser-block code {
+    background: #222;
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: #f90;
+}
+
+#browser-block a {
+    color: #4af;
 }
