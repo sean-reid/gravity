@@ -5,10 +5,10 @@
 use crate::util::{Vec2, Rng, Color};
 use crate::physics::gravity::{compute_gravitational_acceleration, G};
 use crate::physics::integrator::{VerletState, integrate_step, integrate_step_with_thrust};
-use crate::physics::dilation::{compute_tau, compute_steps_per_frame};
+use crate::physics::dilation::compute_tau;
 use crate::physics::orbit::{compute_orbital_params, compute_circular_orbit_velocity};
 use crate::physics::collision::{
-    circle_circle, check_event_horizon, check_escape, ray_circle_intersection,
+    circle_circle, check_event_horizon, check_escape,
     KILL_FACTOR, MAX_RADIUS,
 };
 // Entity types
@@ -24,7 +24,7 @@ use crate::entities::effects::{
 };
 use crate::weapons::{WeaponType, weapon_slots};
 use crate::weapons::photon_lance::{
-    beam_endpoint, compute_beam_damage, BEAM_RANGE, BEAM_WIDTH, FUEL_COST as PHOTON_FUEL_COST,
+    compute_beam_damage, BEAM_WIDTH, FUEL_COST as PHOTON_FUEL_COST,
 };
 use crate::ai::decision::{run_ai_tick, AiContext};
 use crate::input::InputAction;
@@ -1595,59 +1595,43 @@ impl Game {
             audio.play_sound(SoundEvent::PhotonLanceStart);
         }
 
-        // Raycast beam
+        // Trace beam along geodesic (curved by gravity)
         let origin = self.player.position;
-        let dir = Vec2::from_angle(self.player.turret_angle);
-        let end_point = beam_endpoint(origin, self.player.turret_angle);
+        let gravity_sources: Vec<(Vec2, f64)> =
+            self.black_holes.iter().map(|bh| bh.as_gravity_source()).collect();
+        let bot_targets: Vec<(Vec2, f64)> = self.bots.iter()
+            .map(|b| (b.position, BOT_RADIUS))
+            .collect();
+        let bot_alive: Vec<bool> = self.bots.iter().map(|b| b.alive).collect();
 
-        // Check beam hits against bots
-        let mut closest_hit: Option<(usize, f64)> = None;
-        for (i, bot) in self.bots.iter().enumerate() {
-            if bot.is_dead() {
-                continue;
-            }
-            if let Some(t) = ray_circle_intersection(origin, dir, bot.position, BOT_RADIUS) {
-                if t > 0.0 && t < BEAM_RANGE {
-                    if closest_hit.is_none() || t < closest_hit.unwrap().1 {
-                        closest_hit = Some((i, t));
-                    }
-                }
-            }
-        }
+        let (beam_points, hit) = crate::weapons::photon_lance::trace_beam_geodesic(
+            origin, self.player.turret_angle, &gravity_sources, &bot_targets, &bot_alive,
+        );
 
-        // Apply beam damage
-        if let Some((bot_idx, t)) = closest_hit {
+        // Apply beam damage if we hit a bot
+        if let Some((bot_idx, _hit_pos)) = hit {
             let target_tau = self.bots[bot_idx].tau;
             let dmg = compute_beam_damage(dt_proper, target_tau);
             self.bots[bot_idx].apply_damage(dmg);
-            self.level_stats.damage_taken += 0.0; // beam hits are shots_hit
             self.level_stats.shots_hit += 1;
             self.level_stats.shots_fired += 1;
 
             if self.bots[bot_idx].is_dead() {
                 self.on_bot_killed(bot_idx, false, audio);
             }
+        }
 
-            // Visual: beam ends at hit point
-            let hit_point = origin + dir * t;
-            let color = Color::WHITE;
-            self.beam_segments = vec![BeamSegment {
-                start_pos: origin.as_f32_array(),
-                end_pos: hit_point.as_f32_array(),
+        // Build visual beam segments from the geodesic path
+        self.beam_segments.clear();
+        let color = Color::WHITE;
+        for i in 0..beam_points.len().saturating_sub(1) {
+            self.beam_segments.push(BeamSegment {
+                start_pos: beam_points[i].position.as_f32_array(),
+                end_pos: beam_points[i + 1].position.as_f32_array(),
                 width: BEAM_WIDTH as f32,
                 color: color.to_array(),
                 _pad: [0.0; 3],
-            }];
-        } else {
-            // Beam goes full range
-            let color = Color::WHITE;
-            self.beam_segments = vec![BeamSegment {
-                start_pos: origin.as_f32_array(),
-                end_pos: end_point.as_f32_array(),
-                width: BEAM_WIDTH as f32,
-                color: color.to_array(),
-                _pad: [0.0; 3],
-            }];
+            });
         }
     }
 

@@ -12,7 +12,6 @@ use crate::camera::Camera;
 use crate::game::{Game, GameState, NameEntryState};
 use crate::input::KeyboardMouseInput;
 use crate::input::InputProvider;
-use crate::persistence::SaveData;
 use crate::persistence::native_save::NativeSave;
 use crate::rendering::Renderer;
 use crate::rendering::gpu::init_gpu;
