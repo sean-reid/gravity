@@ -873,15 +873,19 @@ impl Game {
         }
 
         // -------------------------------------------------------------------
-        // 2. Compute player tau and steps_per_frame
+        // 2. Compute player tau and fixed physics steps
         // -------------------------------------------------------------------
         let dilation_sources: Vec<(Vec2, f64)> =
             self.black_holes.iter().map(|bh| bh.as_dilation_source()).collect();
         let player_tau = compute_tau(self.player.position, &dilation_sources);
         self.player.tau = player_tau;
 
-        let (num_steps, dt_step) =
-            compute_steps_per_frame(dt_wall, player_tau, FIXED_DT_COORD, MAX_STEPS_PER_FRAME);
+        // Always run a fixed number of steps per frame.
+        // Each entity moves at a rate scaled by (entity_tau / player_tau).
+        // When the player is deep (low tau), bots at higher altitude (higher tau)
+        // move and act FASTER relative to the player — the universe speeds up.
+        let num_steps = ((dt_wall / FIXED_DT_COORD).ceil() as u32).max(1).min(MAX_STEPS_PER_FRAME);
+        let dt_step = dt_wall / num_steps as f64;
 
         // -------------------------------------------------------------------
         // 3. Physics sub-steps
@@ -1234,12 +1238,22 @@ impl Game {
 
             let bot = &mut self.bots[i];
             bot.tau = compute_tau(bot.position, &dilation_sources);
-            let dt_proper_bot = dt * bot.tau;
 
-            bot.time_since_last_decision += dt_proper_bot;
+            // The relative dilation: how fast this bot's time runs relative to the player.
+            // bot_tau > player_tau → bot is at higher altitude → its time runs faster
+            // from the player's perspective.
+            let player_tau = self.player.tau;
+            let relative_tau = if player_tau > 0.01 { bot.tau / player_tau } else { bot.tau / 0.01 };
+
+            // Bot proper time ticks at its own tau (absolute), but decisions/cooldowns
+            // use the relative rate so the player perceives bots speeding up when deep.
+            let dt_proper_bot = dt * bot.tau;
+            let dt_relative = dt * relative_tau;
+
+            bot.time_since_last_decision += dt_relative;
             bot.proper_time += dt_proper_bot;
-            bot.regenerate(dt_proper_bot);
-            bot.weapon_cooldown = (bot.weapon_cooldown - dt_proper_bot).max(0.0);
+            bot.regenerate(dt_relative);
+            bot.weapon_cooldown = (bot.weapon_cooldown - dt_relative).max(0.0);
 
             let should_decide = bot.time_since_last_decision >= bot.decision_interval;
             if should_decide {
@@ -1307,8 +1321,16 @@ impl Game {
                 }
             }
 
-            // Integrate bot physics
+            // Integrate bot physics — scale dt by relative dilation so bots
+            // move faster from the player's perspective when player is deep
             let bot = &self.bots[i];
+            let bot_relative_tau = if self.player.tau > 0.01 {
+                bot.tau / self.player.tau
+            } else {
+                bot.tau / 0.01
+            };
+            let bot_dt = dt * bot_relative_tau.min(5.0); // cap to prevent instability
+
             let mut vs = VerletState {
                 position: bot.position,
                 velocity: bot.velocity,
@@ -1323,9 +1345,9 @@ impl Game {
             };
 
             if effective_thrust.length_squared() > 1e-12 {
-                integrate_step_with_thrust(&mut vs, dt, &gravity_sources, effective_thrust);
+                integrate_step_with_thrust(&mut vs, bot_dt, &gravity_sources, effective_thrust);
             } else {
-                integrate_step(&mut vs, dt, &gravity_sources);
+                integrate_step(&mut vs, bot_dt, &gravity_sources);
             }
 
             self.bots[i].position = vs.position;
@@ -1615,10 +1637,16 @@ impl Game {
                 continue;
             }
 
-            let _proj_tau = compute_tau(proj.position, dilation_sources);
+            let proj_tau = compute_tau(proj.position, dilation_sources);
+            let proj_relative_tau = if self.player.tau > 0.01 {
+                proj_tau / self.player.tau
+            } else {
+                proj_tau / 0.01
+            };
+            let proj_dt = dt * proj_relative_tau.min(5.0);
 
-            // Tick lifetime in coordinate time
-            proj.lifetime -= dt;
+            // Tick lifetime in relative time
+            proj.lifetime -= proj_dt;
             if proj.lifetime <= 0.0 {
                 proj.alive = false;
                 // Reclaim mine count
@@ -1630,7 +1658,7 @@ impl Game {
 
             // Special: gravity bomb arming
             if proj.projectile_type == ProjectileType::GravityBomb && !proj.bomb_active {
-                proj.bomb_timer -= dt;
+                proj.bomb_timer -= proj_dt;
                 if proj.bomb_timer <= 0.0 {
                     proj.bomb_active = true;
                     // Gravity bomb decelerates to near-stop when active
@@ -1684,19 +1712,19 @@ impl Game {
                     let current_dir = proj.velocity.normalized();
                     let steer = to_target - current_dir;
                     let speed = proj.velocity.length();
-                    proj.velocity = (proj.velocity + steer * proj.tracking_strength * dt)
+                    proj.velocity = (proj.velocity + steer * proj.tracking_strength * proj_dt)
                         .normalized()
                         * speed;
                 }
             }
 
-            // Integrate projectile physics
+            // Integrate projectile physics — scaled by relative dilation
             let mut vs = VerletState {
                 position: proj.position,
                 velocity: proj.velocity,
                 acceleration: proj.acceleration,
             };
-            integrate_step(&mut vs, dt, &all_gravity);
+            integrate_step(&mut vs, proj_dt, &all_gravity);
             proj.position = vs.position;
             proj.velocity = vs.velocity;
             proj.acceleration = vs.acceleration;
@@ -1847,6 +1875,18 @@ impl Game {
                 continue; // tidal mines don't do normal collision
             }
 
+            // Compute depth-scaled damage.
+            // Mass Driver and Photon Lance hit harder when fired from deeper.
+            // Formula: damage * (1 + DEPTH_BONUS * (1 - tau_at_launch))
+            // At tau=1.0 (rim): no bonus. At tau=0.5 (furnace): +100% bonus.
+            let depth_scaled_damage = match proj.projectile_type {
+                ProjectileType::MassDriver => {
+                    let depth_bonus = 2.0;
+                    proj.damage * (1.0 + depth_bonus * (1.0 - proj.tau_at_launch))
+                }
+                _ => proj.damage,
+            };
+
             // Normal projectile-vs-ship collision
             if proj.owner_is_player {
                 // Check vs bots
@@ -1855,7 +1895,7 @@ impl Game {
                         continue;
                     }
                     if circle_circle(proj.position, proj.radius, bot.position, BOT_RADIUS) {
-                        bot_hits.push((pi, bi, proj.damage));
+                        bot_hits.push((pi, bi, depth_scaled_damage));
                         break;
                     }
                 }
@@ -1869,19 +1909,37 @@ impl Game {
                         SHIP_RADIUS,
                     )
                 {
-                    player_hits.push((pi, proj.damage));
+                    player_hits.push((pi, depth_scaled_damage));
                 }
             }
         }
 
         // Apply bot hits
         for &(pi, bi, damage) in &bot_hits {
-            if pi < self.projectiles.len() {
+            let proj_type = if pi < self.projectiles.len() {
+                let pt = self.projectiles[pi].projectile_type;
                 self.projectiles[pi].alive = false;
-            }
+                Some(pt)
+            } else {
+                None
+            };
             if bi < self.bots.len() && self.bots[bi].alive {
                 self.bots[bi].apply_damage(damage);
                 audio.play_sound(SoundEvent::ShieldHit);
+
+                // Impulse rocket: apply orbital kick toward nearest black hole
+                if proj_type == Some(ProjectileType::ImpulseRocket) {
+                    let bot_pos = self.bots[bi].position;
+                    if let Some(nearest_bh) = self.black_holes.iter()
+                        .min_by(|a, b| a.position.distance_squared(bot_pos)
+                            .partial_cmp(&b.position.distance_squared(bot_pos))
+                            .unwrap_or(std::cmp::Ordering::Equal))
+                    {
+                        let kick_dir = (nearest_bh.position - bot_pos).normalized();
+                        let kick_magnitude = 6.0; // strong push toward BH
+                        self.bots[bi].velocity = self.bots[bi].velocity + kick_dir * kick_magnitude;
+                    }
+                }
 
                 // Explosion at hit point
                 let hit_pos = self.bots[bi].position;
@@ -1908,6 +1966,19 @@ impl Game {
                 self.player.apply_damage(damage);
                 let actual_damage = old_health - self.player.health;
                 self.level_stats.damage_taken += actual_damage;
+
+                // Impulse rocket: push player toward nearest black hole
+                if proj_type == ProjectileType::ImpulseRocket {
+                    if let Some(nearest_bh) = self.black_holes.iter()
+                        .min_by(|a, b| a.position.distance_squared(self.player.position)
+                            .partial_cmp(&b.position.distance_squared(self.player.position))
+                            .unwrap_or(std::cmp::Ordering::Equal))
+                    {
+                        let kick_dir = (nearest_bh.position - self.player.position).normalized();
+                        let kick_magnitude = 6.0;
+                        self.player.velocity = self.player.velocity + kick_dir * kick_magnitude;
+                    }
+                }
 
                 if self.player.shields > 0.0 || actual_damage < damage {
                     audio.play_sound(SoundEvent::ShieldHit);
