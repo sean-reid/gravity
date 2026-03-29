@@ -16,9 +16,10 @@ pub struct ArchetypeStats {
 /// At low difficulty, bots think more slowly and have less health/shields.
 pub fn get_archetype_stats(archetype: &BotArchetype, difficulty_scale: f64) -> ArchetypeStats {
     let difficulty = difficulty_scale.clamp(0.0, 1.0);
-    let hp_shield_multiplier = 1.0 + 0.5 * difficulty;
-    // At difficulty 0, decision intervals are 2.5x longer (slower reactions)
-    let interval_multiplier = 2.5 - 1.5 * difficulty; // 2.5 at d=0, 1.0 at d=1
+    // At difficulty 0, bots have 70% base health. At difficulty 1, +50%.
+    let hp_shield_multiplier = 0.7 + 0.8 * difficulty;
+    // At difficulty 0, decision intervals are 3.5x longer (much slower reactions)
+    let interval_multiplier = 3.5 - 2.5 * difficulty; // 3.5 at d=0, 1.0 at d=1
 
     let (base_hp, base_sh, fuel, interval, shield_regen, altitude) = match archetype {
         BotArchetype::Skirmisher => (40.0, 30.0, 60.0, 0.3, 3.0, 8.0),

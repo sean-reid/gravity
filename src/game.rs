@@ -552,7 +552,7 @@ impl Game {
                 self.update_level_clear(actions, audio);
             }
             GameState::Debrief => {
-                self.update_debrief(actions, audio);
+                self.update_debrief(dt_wall, actions, audio);
             }
             GameState::Paused => {
                 self.update_paused(actions, audio);
@@ -899,13 +899,15 @@ impl Game {
             }
         }
 
-        // If player died during physics, stop beam and transition to Death state
+        // If player died during physics, reset audio and transition to Death state
         if self.player.is_dead() {
             if self.beam_active {
                 self.beam_active = false;
                 self.beam_segments.clear();
                 audio.play_sound(SoundEvent::PhotonLanceStop);
             }
+            audio.set_heartbeat_rate(0.0);
+            audio.set_ambient_params(AmbientParams { depth_factor: 0.0, player_tau: 1.0 });
             return; // state already set in physics_step
         }
 
@@ -1103,6 +1105,16 @@ impl Game {
                         && matches!(&e.content, NarrativeContent::Debrief(_))
                 });
                 if has_debrief {
+                    // Load debrief dialogue lines into briefing state
+                    for event in &self.narrative_script {
+                        if matches!(&event.trigger, NarrativeTrigger::LevelClear(l) if *l == self.level_number) {
+                            if let NarrativeContent::Debrief(lines) = &event.content {
+                                self.briefing = Some(BriefingState::new(lines.clone()));
+                                break;
+                            }
+                        }
+                    }
+                    self.screen_cooldown = 1.0;
                     self.state = GameState::Debrief;
                 } else {
                     // Advance to next level
@@ -1114,13 +1126,40 @@ impl Game {
         }
     }
 
-    fn update_debrief(&mut self, actions: &[InputAction], audio: &mut dyn AudioBackend) {
+    fn update_debrief(&mut self, dt: f64, actions: &[InputAction], audio: &mut dyn AudioBackend) {
+        // Advance briefing typewriter
+        if let Some(ref mut briefing) = self.briefing {
+            briefing.update(dt);
+        }
+
+        if self.screen_cooldown > 0.0 { return; }
+
         for action in actions {
-            if *action == InputAction::Confirm || *action == InputAction::Fire {
-                audio.play_sound(SoundEvent::UIConfirm);
-                self.is_retry = false;
-                self.start_level(self.level_number + 1);
-                return;
+            match action {
+                InputAction::Confirm | InputAction::Fire => {
+                    // If briefing is still typing, advance it
+                    if let Some(ref mut briefing) = self.briefing {
+                        if !briefing.is_all_done() {
+                            briefing.advance();
+                            audio.play_sound(SoundEvent::UIConfirm);
+                            return;
+                        }
+                    }
+                    // Briefing done or no briefing — advance to next level
+                    audio.play_sound(SoundEvent::UIConfirm);
+                    self.briefing = None;
+                    self.is_retry = false;
+                    self.start_level(self.level_number + 1);
+                    return;
+                }
+                InputAction::Pause => {
+                    // Skip debrief
+                    self.briefing = None;
+                    self.is_retry = false;
+                    self.start_level(self.level_number + 1);
+                    return;
+                }
+                _ => {}
             }
         }
     }
@@ -2190,7 +2229,15 @@ impl Game {
     // Level clear
     // -----------------------------------------------------------------------
 
-    fn on_level_clear(&mut self, _audio: &mut dyn AudioBackend) {
+    fn on_level_clear(&mut self, audio: &mut dyn AudioBackend) {
+        // Reset audio — stop heartbeat, warnings, beam, reset ambient
+        audio.set_heartbeat_rate(0.0);
+        audio.set_ambient_params(AmbientParams { depth_factor: 0.0, player_tau: 1.0 });
+        if self.beam_active {
+            self.beam_active = false;
+            self.beam_segments.clear();
+            audio.play_sound(SoundEvent::PhotonLanceStop);
+        }
         let stats = self.build_current_stats();
 
         // Compute score
@@ -2272,7 +2319,11 @@ impl Game {
             }
         }
 
-        // Leaderboard will auto-fetch after score submission completes (see online.rs poll)
+        // Fetch leaderboard immediately (may not include our score yet),
+        // and also auto-fetch again after score submission completes (see online.rs poll)
+        if let Some(config) = &self.level_config {
+            self.online.fetch_leaderboard(config.seed, 10);
+        }
 
         self.screen_cooldown = 1.5; // prevent held fire from skipping
         self.state = GameState::LevelClear {
@@ -2626,8 +2677,12 @@ impl Game {
             color: [0.0, 0.0, 0.05, 0.8],
         });
 
-        // Level header
-        let header = format!("LEVEL {}", self.level_number);
+        // Level header — show "MISSION DEBRIEF" for debrief, "LEVEL N" for briefing
+        let header = if self.state == GameState::Debrief {
+            "MISSION DEBRIEF".to_string()
+        } else {
+            format!("LEVEL {}", self.level_number)
+        };
         let header_scale = 3.0 * s;
         let header_w = header.len() as f32 * 8.0 * header_scale;
         els.push(HudElement::Text {
@@ -2905,16 +2960,23 @@ impl Game {
                 });
                 lb_y += lb_line_h;
             }
+        } else if self.online.leaderboard_fetched {
+            els.push(HudElement::Text {
+                x: lb_x, y: lb_y,
+                text: "NO SCORES YET".to_string(),
+                color: [0.4, 0.4, 0.4, 0.6],
+                scale: lb_scale,
+            });
         } else {
             els.push(HudElement::Text {
                 x: lb_x, y: lb_y,
-                text: "LOADING LEADERBOARD...".to_string(),
-                color: [0.4, 0.4, 0.4, 1.0],
+                text: "LOADING...".to_string(),
+                color: [0.4, 0.4, 0.4, 0.6],
                 scale: lb_scale,
             });
         }
 
-        // Bottom prompts
+        // Bottom prompts — always shown, don't wait for leaderboard
         let prompt_scale = 1.8 * s;
         let prompt = "ENTER - NEXT LEVEL";
         let prompt_w = prompt.len() as f32 * 8.0 * prompt_scale;

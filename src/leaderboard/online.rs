@@ -118,6 +118,8 @@ pub struct OnlineLeaderboard {
     last_submitted_seed: Option<u64>,
     /// The most recently fetched leaderboard page.
     pub cached_leaderboard: Vec<OnlineEntry>,
+    /// Whether a leaderboard fetch has completed (true even if empty).
+    pub leaderboard_fetched: bool,
     /// Total entries reported by the last leaderboard fetch.
     pub cached_leaderboard_total: u64,
     /// Connection / error status.
@@ -141,6 +143,7 @@ impl OnlineLeaderboard {
             last_rank: None,
             last_submitted_seed: None,
             cached_leaderboard: Vec::new(),
+            leaderboard_fetched: false,
             cached_leaderboard_total: 0,
             status: OnlineStatus::Idle,
         }
@@ -169,6 +172,8 @@ impl OnlineLeaderboard {
                 OnlineResult::ScoreSubmitted { rank, total } => {
                     log::info!("Online leaderboard: rank {rank}/{total}");
                     self.last_rank = Some((rank, total));
+                    // Score accepted — clear pending queue
+                    self.pending_submissions.clear();
                     // Auto-fetch leaderboard now that our score is in
                     if let Some(seed) = self.last_submitted_seed {
                         self.fetch_leaderboard(seed, 10);
@@ -177,12 +182,21 @@ impl OnlineLeaderboard {
                 OnlineResult::LeaderboardFetched { entries, total } => {
                     self.cached_leaderboard = entries;
                     self.cached_leaderboard_total = total;
+                    self.leaderboard_fetched = true;
                 }
                 OnlineResult::PlayerStats { data: _ } => {
                     // Reserved for future UI display.
                 }
                 OnlineResult::Error(msg) => {
                     log::warn!("Online leaderboard error: {msg}");
+                    // If we got a 404, our player ID is stale — re-register
+                    // and re-queue the last score submission
+                    if msg.contains("404") && self.player_id.is_some() {
+                        log::info!("Player not found on server, re-registering...");
+                        self.player_id = None;
+                        self.register();
+                        // drain_pending will fire after registration completes
+                    }
                     self.status = OnlineStatus::Error(msg);
                 }
             }
@@ -222,6 +236,8 @@ impl OnlineLeaderboard {
     /// and will be sent automatically once registration completes.
     pub fn submit_score(&mut self, mut submission: ScoreSubmission) {
         self.last_submitted_seed = Some(submission.seed);
+        // Always keep a copy in pending so it can be re-sent after re-registration
+        self.pending_submissions.push(submission.clone());
         match &self.player_id {
             Some(pid) => {
                 submission.player_id = pid.clone();
@@ -250,8 +266,7 @@ impl OnlineLeaderboard {
                 });
             }
             None => {
-                // Not registered yet – queue it.
-                self.pending_submissions.push(submission);
+                // Not registered yet – already queued above, will drain after registration.
             }
         }
     }
@@ -270,7 +285,8 @@ impl OnlineLeaderboard {
     // -- Leaderboard fetching ------------------------------------------------
 
     /// Fetch the top `limit` entries for a given seed.
-    pub fn fetch_leaderboard(&self, seed: u64, limit: u32) {
+    pub fn fetch_leaderboard(&mut self, seed: u64, limit: u32) {
+        self.leaderboard_fetched = false;
         let url = format!(
             "{}/api/leaderboard/{}?limit={}&offset=0",
             self.base_url, seed, limit

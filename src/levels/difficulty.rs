@@ -16,14 +16,14 @@ pub fn max_dilation_for_level(level: u32) -> f64 {
 }
 
 /// Number of bots to spawn for a given level.
-/// Levels 1-2 start with just 2 bots, level 3 gets 3, then adds one every 2 levels, capped at 30.
+/// Slow ramp: 2 bots through level 5, then +1 every 3 levels, capped at 25.
 pub fn bot_count_for_level(level: u32) -> u32 {
     let raw = match level {
-        1..=2 => 2,
-        3 => 3,
-        _ => 3 + (level - 3) / 2,
+        1..=3 => 2,
+        4..=5 => 3,
+        _ => 3 + (level - 5) / 3,
     };
-    raw.min(30)
+    raw.min(25)
 }
 
 #[cfg(test)]

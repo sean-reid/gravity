@@ -44,9 +44,10 @@ pub fn compute_lead_target(
     let aim_dir = predicted_pos - shooter_pos;
     let base_angle = aim_dir.angle();
 
-    // Apply accuracy error: random angular offset scaled by accuracy_error
-    // The multiplier converts accuracy_error into radians of aim spread
-    let error_offset = accuracy_error * rng.range_f64(-1.0, 1.0) * 0.35;
+    // Apply accuracy error: random angular offset scaled by accuracy_error.
+    // The multiplier converts accuracy_error into radians of aim spread.
+    // At 0.5 error: ±0.3 radians (~17 degrees) — misses often at range.
+    let error_offset = accuracy_error * rng.range_f64(-1.0, 1.0) * 0.6;
 
     base_angle + error_offset
 }

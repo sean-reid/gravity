@@ -29,20 +29,20 @@ pub fn get_personality(archetype: &BotArchetype, difficulty: f64) -> Personality
     match archetype {
         // Skirmisher: jack-of-all-trades, moderate everything, belt orbiter.
         BotArchetype::Skirmisher => PersonalityParams {
-            aggression: lerp(0.2, 0.6, d),
-            caution: lerp(0.7, 0.4, d),
-            accuracy_error: lerp(0.40, 0.03, d),
+            aggression: lerp(0.15, 0.6, d),
+            caution: lerp(0.8, 0.4, d),
+            accuracy_error: lerp(0.55, 0.05, d),
             dive_willingness: 0.3,
             preferred_min_altitude: 5.0,
             preferred_max_altitude: 12.0,
-            retreat_health_threshold: lerp(0.5, 0.25, d),
+            retreat_health_threshold: lerp(0.6, 0.25, d),
         },
 
         // Diver: aggressive, brave, good aim, alternates belt and furnace.
         BotArchetype::Diver => PersonalityParams {
-            aggression: lerp(0.4, 0.85, d),
-            caution: lerp(0.4, 0.15, d),
-            accuracy_error: lerp(0.30, 0.03, d),
+            aggression: lerp(0.3, 0.85, d),
+            caution: lerp(0.5, 0.15, d),
+            accuracy_error: lerp(0.45, 0.05, d),
             dive_willingness: lerp(0.5, 0.9, d),
             preferred_min_altitude: 2.0,
             preferred_max_altitude: 12.0,
@@ -51,20 +51,20 @@ pub fn get_personality(archetype: &BotArchetype, difficulty: f64) -> Personality
 
         // Vulture: cowardly sniper, stays at rim, never goes deep.
         BotArchetype::Vulture => PersonalityParams {
-            aggression: lerp(0.15, 0.35, d),
+            aggression: lerp(0.1, 0.35, d),
             caution: 0.8,
-            accuracy_error: lerp(0.35, 0.05, d),
+            accuracy_error: lerp(0.50, 0.08, d),
             dive_willingness: 0.0,
             preferred_min_altitude: 10.0,
             preferred_max_altitude: 25.0,
             retreat_health_threshold: lerp(0.6, 0.4, d),
         },
 
-        // Anchor: immobile turret, very aggressive, doesn't retreat, stays low.
+        // Anchor: immobile turret, aggressive, doesn't retreat, stays low.
         BotArchetype::Anchor => PersonalityParams {
-            aggression: 0.9,
+            aggression: lerp(0.6, 0.9, d),
             caution: 0.0,
-            accuracy_error: lerp(0.12, 0.05, d),
+            accuracy_error: lerp(0.30, 0.05, d),
             dive_willingness: 0.5,
             preferred_min_altitude: 2.5,
             preferred_max_altitude: 5.0,
@@ -73,9 +73,9 @@ pub fn get_personality(archetype: &BotArchetype, difficulty: f64) -> Personality
 
         // Swarm: aggressive pack hunter, poor accuracy, expendable.
         BotArchetype::Swarm => PersonalityParams {
-            aggression: lerp(0.3, 0.75, d),
+            aggression: lerp(0.2, 0.75, d),
             caution: 0.1,
-            accuracy_error: lerp(0.45, 0.12, d),
+            accuracy_error: lerp(0.60, 0.15, d),
             dive_willingness: 0.4,
             preferred_min_altitude: 5.0,
             preferred_max_altitude: 10.0,
