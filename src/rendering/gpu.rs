@@ -50,10 +50,9 @@ pub async fn init_gpu(
     wgpu::Surface<'static>,
     wgpu::SurfaceConfiguration,
 ) {
-    let instance = wgpu::Instance::new({
-        let mut desc = wgpu::InstanceDescriptor::new_without_display_handle();
-        desc.backends = wgpu::Backends::all();
-        desc
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        backends: wgpu::Backends::all(),
+        ..Default::default()
     });
 
     let surface = match instance.create_surface(window.clone()) {
@@ -81,8 +80,8 @@ pub async fn init_gpu(
             .await;
 
         match hp {
-            Ok(a) => a,
-            Err(_) => {
+            Some(a) => a,
+            None => {
                 let lp = instance
                     .request_adapter(&wgpu::RequestAdapterOptions {
                         power_preference: wgpu::PowerPreference::LowPower,
@@ -91,8 +90,8 @@ pub async fn init_gpu(
                     })
                     .await;
                 match lp {
-                    Ok(a) => a,
-                    Err(_) => {
+                    Some(a) => a,
+                    None => {
                         // On web: throw a JS error that bootstrap.js can catch.
                         // On native: panic (no recovery possible).
                         #[cfg(target_arch = "wasm32")]
@@ -117,6 +116,7 @@ pub async fn init_gpu(
                 required_limits: wgpu::Limits::default(),
                 ..Default::default()
             },
+            None,
         )
         .await
         .expect("Failed to create device");

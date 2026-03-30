@@ -236,15 +236,20 @@ impl Renderer {
 
         // Acquire surface texture.
         let output = match self.surface.get_current_texture() {
-            wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
-            wgpu::CurrentSurfaceTexture::Lost | wgpu::CurrentSurfaceTexture::Outdated => {
+            Ok(frame) => {
+                if frame.suboptimal {
+                    self.surface
+                        .configure(&self.device, &self.surface_config);
+                }
+                frame
+            }
+            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
                 self.surface
                     .configure(&self.device, &self.surface_config);
                 return;
             }
-            other => {
-                // Occluded = window minimized/hidden, harmless — skip this frame
-                log::trace!("Surface unavailable: {:?}", other);
+            Err(e) => {
+                log::trace!("Surface unavailable: {:?}", e);
                 return;
             }
         };
@@ -264,7 +269,6 @@ impl Renderer {
                 label: Some("scene_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.scene_texture_view,
-                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -311,7 +315,6 @@ impl Renderer {
                 label: Some("postprocess_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
-                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -335,7 +338,6 @@ impl Renderer {
                 label: Some("hud_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
-                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
