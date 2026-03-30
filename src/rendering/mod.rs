@@ -243,7 +243,8 @@ impl Renderer {
                 return;
             }
             other => {
-                log::error!("Surface error: {:?}", other);
+                // Occluded = window minimized/hidden, harmless — skip this frame
+                log::trace!("Surface unavailable: {:?}", other);
                 return;
             }
         };
@@ -326,6 +327,9 @@ impl Renderer {
         }
 
         // ---- Pass 8: HUD overlay on surface ----
+        // Prepare HUD data BEFORE beginning the render pass (upload vertices/uniforms)
+        let (hud_rect_count, hud_text_count) =
+            self.hud_pipeline.prepare(&self.queue, &scene.hud_elements);
         {
             let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("hud_pass"),
@@ -343,7 +347,7 @@ impl Renderer {
             });
 
             self.hud_pipeline
-                .render(&mut pass, &self.queue, &scene.hud_elements);
+                .render(&mut pass, &self.queue, hud_rect_count, hud_text_count);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));

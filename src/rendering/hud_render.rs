@@ -41,7 +41,7 @@ struct HudUniform {
     _pad2: u32,
 }
 
-const MAX_HUD_VERTS: u32 = 8192;
+const MAX_HUD_VERTS: u32 = 16384;
 
 pub struct HudPipeline {
     pipeline: wgpu::RenderPipeline,
@@ -76,7 +76,6 @@ impl HudPipeline {
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("hud_bgl"),
                 entries: &[
-                    // @group(0) @binding(0) - HudUniform
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
@@ -87,7 +86,6 @@ impl HudPipeline {
                         },
                         count: None,
                     },
-                    // @group(0) @binding(1) - atlas_texture
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStages::FRAGMENT,
@@ -98,7 +96,6 @@ impl HudPipeline {
                         },
                         count: None,
                     },
-                    // @group(0) @binding(2) - atlas_sampler
                     wgpu::BindGroupLayoutEntry {
                         binding: 2,
                         visibility: wgpu::ShaderStages::FRAGMENT,
@@ -158,17 +155,20 @@ impl HudPipeline {
             array_stride: std::mem::size_of::<HudVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
-                // position
                 wgpu::VertexAttribute {
                     format: wgpu::VertexFormat::Float32x2,
                     offset: 0,
                     shader_location: 0,
                 },
-                // uv
                 wgpu::VertexAttribute {
                     format: wgpu::VertexFormat::Float32x2,
                     offset: 8,
                     shader_location: 1,
+                },
+                wgpu::VertexAttribute {
+                    format: wgpu::VertexFormat::Float32x4,
+                    offset: 16,
+                    shader_location: 2,
                 },
             ],
         };
@@ -225,59 +225,98 @@ impl HudPipeline {
     pub fn resize(&mut self, _device: &wgpu::Device, width: f32, height: f32) {
         self.viewport_width = width;
         self.viewport_height = height;
-        // Recreate bind group is not needed because uniform buffer is updated per frame.
     }
 
-    /// Render all HUD elements. This issues multiple draw calls:
-    /// one batch for solid rects (use_texture = 0) and one batch for text (use_texture = 1).
-    pub fn render<'a>(
-        &'a self,
-        render_pass: &mut wgpu::RenderPass<'a>,
+    /// Prepare all HUD vertex data and upload to GPU BEFORE the render pass.
+    /// Returns (rect_count, text_count) for the subsequent draw calls.
+    pub fn prepare(
+        &self,
         queue: &wgpu::Queue,
         elements: &[HudElement],
-    ) {
+    ) -> (u32, u32) {
         if elements.is_empty() {
-            return;
+            return (0, 0);
         }
 
         let screen_proj = orthographic_screen(self.viewport_width, self.viewport_height);
 
-        // Collect rect vertices and text vertices separately.
-        let mut rect_verts: Vec<HudVertex> = Vec::new();
-        let mut text_verts: Vec<HudVertex> = Vec::new();
+        // Build all vertices: rects first, then text
+        let mut all_verts: Vec<HudVertex> = Vec::new();
+        let mut rect_count: u32 = 0;
 
         for el in elements {
-            match el {
-                HudElement::Rect { x, y, w, h, color } => {
-                    let (x, y, w, h) = (*x, *y, *w, *h);
-                    let c = *color;
-                    // Two triangles for the rectangle.
-                    rect_verts.push(HudVertex { position: [x, y], uv: [0.0, 0.0], color: c });
-                    rect_verts.push(HudVertex { position: [x + w, y], uv: [0.0, 0.0], color: c });
-                    rect_verts.push(HudVertex { position: [x + w, y + h], uv: [0.0, 0.0], color: c });
-                    rect_verts.push(HudVertex { position: [x, y], uv: [0.0, 0.0], color: c });
-                    rect_verts.push(HudVertex { position: [x + w, y + h], uv: [0.0, 0.0], color: c });
-                    rect_verts.push(HudVertex { position: [x, y + h], uv: [0.0, 0.0], color: c });
-                }
-                HudElement::Text { x, y, text, color, scale } => {
-                    let verts = self.font.build_text_vertices(text, *x, *y, *scale, *color);
-                    text_verts.extend_from_slice(&verts);
-                }
+            if let HudElement::Rect { x, y, w, h, color } = el {
+                let (x, y, w, h) = (*x, *y, *w, *h);
+                let c = *color;
+                all_verts.push(HudVertex { position: [x, y], uv: [0.0, 0.0], color: c });
+                all_verts.push(HudVertex { position: [x + w, y], uv: [0.0, 0.0], color: c });
+                all_verts.push(HudVertex { position: [x + w, y + h], uv: [0.0, 0.0], color: c });
+                all_verts.push(HudVertex { position: [x, y], uv: [0.0, 0.0], color: c });
+                all_verts.push(HudVertex { position: [x + w, y + h], uv: [0.0, 0.0], color: c });
+                all_verts.push(HudVertex { position: [x, y + h], uv: [0.0, 0.0], color: c });
+                rect_count += 6;
             }
         }
 
-        render_pass.set_pipeline(&self.pipeline);
+        let text_start = rect_count;
+        let mut text_count: u32 = 0;
 
-        // Draw solid rects.
-        if !rect_verts.is_empty() {
-            let count = rect_verts.len().min(MAX_HUD_VERTS as usize);
+        for el in elements {
+            if let HudElement::Text { x, y, text, color, scale } = el {
+                let verts = self.font.build_text_vertices(text, *x, *y, *scale, *color);
+                text_count += verts.len() as u32;
+                all_verts.extend_from_slice(&verts);
+            }
+        }
+
+        let total = all_verts.len().min(MAX_HUD_VERTS as usize);
+        if total > 0 {
             queue.write_buffer(
                 &self.vertex_buffer,
                 0,
-                bytemuck::cast_slice(&rect_verts[..count]),
+                bytemuck::cast_slice(&all_verts[..total]),
             );
+        }
 
-            // Update uniform: solid color mode.
+        // Upload uniform with screen projection (use_texture doesn't matter,
+        // shader uses vertex color for both modes now, but we still set it
+        // for the texture sampling toggle)
+        queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[HudUniform {
+                screen_proj,
+                tint_color: [1.0, 1.0, 1.0, 1.0],
+                use_texture: 0, // will be toggled per draw call... but we can't mid-pass.
+                _pad0: 0,
+                _pad1: 0,
+                _pad2: 0,
+            }]),
+        );
+
+        (rect_count.min(total as u32), text_count.min(total.saturating_sub(rect_count as usize) as u32))
+    }
+
+    /// Issue draw calls during an active render pass.
+    /// Call prepare() BEFORE beginning the render pass.
+    pub fn render<'a>(
+        &'a self,
+        render_pass: &mut wgpu::RenderPass<'a>,
+        queue: &wgpu::Queue,
+        rect_count: u32,
+        text_count: u32,
+    ) {
+        if rect_count == 0 && text_count == 0 {
+            return;
+        }
+
+        let screen_proj = orthographic_screen(self.viewport_width, self.viewport_height);
+        render_pass.set_pipeline(&self.pipeline);
+        render_pass.set_bind_group(0, &self.bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+
+        // Draw rects (use_texture = 0)
+        if rect_count > 0 {
             queue.write_buffer(
                 &self.uniform_buffer,
                 0,
@@ -285,27 +324,14 @@ impl HudPipeline {
                     screen_proj,
                     tint_color: [1.0, 1.0, 1.0, 1.0],
                     use_texture: 0,
-                    _pad0: 0,
-                    _pad1: 0,
-                    _pad2: 0,
+                    _pad0: 0, _pad1: 0, _pad2: 0,
                 }]),
             );
-
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..count as u32, 0..1);
+            render_pass.draw(0..rect_count, 0..1);
         }
 
-        // Draw text.
-        if !text_verts.is_empty() {
-            let count = text_verts.len().min(MAX_HUD_VERTS as usize);
-            queue.write_buffer(
-                &self.vertex_buffer,
-                0,
-                bytemuck::cast_slice(&text_verts[..count]),
-            );
-
-            // Update uniform: texture mode.
+        // Draw text (use_texture = 1)
+        if text_count > 0 {
             queue.write_buffer(
                 &self.uniform_buffer,
                 0,
@@ -313,23 +339,15 @@ impl HudPipeline {
                     screen_proj,
                     tint_color: [1.0, 1.0, 1.0, 1.0],
                     use_texture: 1,
-                    _pad0: 0,
-                    _pad1: 0,
-                    _pad2: 0,
+                    _pad0: 0, _pad1: 0, _pad2: 0,
                 }]),
             );
-
-            render_pass.set_bind_group(0, &self.bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..count as u32, 0..1);
+            render_pass.draw(rect_count..rect_count + text_count, 0..1);
         }
     }
 }
 
-/// Build an orthographic projection matrix that maps screen pixels
-/// (0,0 top-left) to clip space [-1,1].
 fn orthographic_screen(width: f32, height: f32) -> [[f32; 4]; 4] {
-    // Maps (0..width, 0..height) to (-1..1, 1..-1) (Y flipped for top-left origin).
     [
         [2.0 / width, 0.0, 0.0, 0.0],
         [0.0, -2.0 / height, 0.0, 0.0],

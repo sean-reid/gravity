@@ -2684,26 +2684,38 @@ impl Game {
                 let speaker_name = speaker.name();
                 let speaker_color = speaker.color();
 
-                // Speaker name
                 let name_scale = 2.2 * s;
+                let text_scale = 2.0 * s;
                 let margin = 40.0 * s;
+                let max_chars = ((vw - margin * 2.0) / (8.0 * text_scale)) as usize;
+                let max_chars = max_chars.max(20);
+                let lines = wrap_text(text, max_chars);
+                let line_h = 14.0 * text_scale;
+                let text_top = vh * 0.35;
+                let text_bottom = text_top + 14.0 * name_scale + 8.0 * s + line_h * lines.len() as f32;
+
+                // Solid dark panel behind dialogue text
+                els.push(HudElement::Rect {
+                    x: margin - 16.0 * s,
+                    y: text_top - 12.0 * s,
+                    w: vw - margin * 2.0 + 32.0 * s,
+                    h: text_bottom - text_top + 24.0 * s,
+                    color: [0.02, 0.02, 0.05, 1.0],
+                });
+
+                // Speaker name
                 els.push(HudElement::Text {
                     x: margin,
-                    y: vh * 0.35,
+                    y: text_top,
                     text: format!("[{}]", speaker_name),
                     color: speaker_color,
                     scale: name_scale,
                 });
 
-                // Dialogue text — wrap across full width
-                let text_scale = 2.0 * s;
-                let margin = 40.0 * s;
-                let max_chars = ((vw - margin * 2.0) / (8.0 * text_scale)) as usize;
-                let max_chars = max_chars.max(20);
-                let mut y = vh * 0.35 + 14.0 * name_scale + 8.0 * s;
-                let line_h = 14.0 * text_scale;
+                // Dialogue lines
+                let mut y = text_top + 14.0 * name_scale + 8.0 * s;
 
-                for line in wrap_text(text, max_chars) {
+                for line in lines {
                     els.push(HudElement::Text {
                         x: margin,
                         y,

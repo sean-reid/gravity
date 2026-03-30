@@ -3,7 +3,7 @@
 struct HudUniform {
     screen_proj: mat4x4<f32>,
     tint_color: vec4<f32>,
-    use_texture: u32, // 1 = sample texture, 0 = solid color
+    use_texture: u32, // 1 = sample texture, 0 = solid color from vertex
     _pad0: u32,
     _pad1: u32,
     _pad2: u32,
@@ -15,11 +15,13 @@ struct HudUniform {
 struct VertexInput {
     @location(0) position: vec2<f32>,
     @location(1) uv: vec2<f32>,
+    @location(2) color: vec4<f32>,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
+    @location(1) color: vec4<f32>,
 };
 
 @vertex
@@ -27,21 +29,18 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var out: VertexOutput;
     out.clip_position = hud.screen_proj * vec4<f32>(in.position, 0.0, 1.0);
     out.uv = in.uv;
+    out.color = in.color;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    var color: vec4<f32>;
-
     if (hud.use_texture == 1u) {
-        // Sample from texture atlas (text glyphs, icons).
+        // Text: sample texture, multiply by vertex color for tinting
         let tex_color = textureSample(atlas_texture, atlas_sampler, in.uv);
-        color = tex_color * hud.tint_color;
+        return tex_color * in.color;
     } else {
-        // Solid color mode (health bars, energy bars, etc.).
-        color = hud.tint_color;
+        // Solid rects: use vertex color directly
+        return in.color;
     }
-
-    return color;
 }
