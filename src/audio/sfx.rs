@@ -108,18 +108,18 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
     match event {
         // ---- Weapons -------------------------------------------------------
         SoundEvent::RailgunFire => {
-            // Short burst of high-frequency filtered noise (bright snap)
+            // Short burst of filtered noise (softer snap)
             SoundGenerator {
                 oscillators: vec![],
                 noise: Some(WhiteNoise::new()),
                 envelope: Envelope::new(0.001, 0.09, 0.0, 0.01),
-                filter: Some(LowPassFilter::new(8000.0, 1.0, sr)),
+                filter: Some(LowPassFilter::new(4000.0, 1.0, sr)),
                 duration: 0.1,
                 time: 0.0,
                 freq_start: 0.0,
                 freq_end: 0.0,
                 use_freq_sweep: false,
-                volume: 0.7,
+                volume: 0.3,
                 sustaining: false,
                 releasing: false,
             }
@@ -140,7 +140,7 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 0.0,
                 freq_end: 0.0,
                 use_freq_sweep: false,
-                volume: 0.8,
+                volume: 0.55,
                 sustaining: false,
                 releasing: false,
             }
@@ -161,7 +161,7 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 400.0,
                 freq_end: 1200.0,
                 use_freq_sweep: true,
-                volume: 0.5,
+                volume: 0.35,
                 sustaining: true,
                 releasing: false,
             }
@@ -198,7 +198,7 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 400.0,
                 freq_end: 80.0,
                 use_freq_sweep: true,
-                volume: 0.7,
+                volume: 0.45,
                 sustaining: false,
                 releasing: false,
             }
@@ -216,18 +216,18 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 120.0,
                 freq_end: 400.0,
                 use_freq_sweep: true,
-                volume: 0.6,
+                volume: 0.4,
                 sustaining: false,
                 releasing: false,
             }
         }
 
         SoundEvent::TidalMineDeploy => {
-            // Metallic ping – high sine 2kHz with fast decay, 0.15s
+            // Metallic ping – lower sine with fast decay, 0.15s
             SoundGenerator {
                 oscillators: vec![
-                    Oscillator::new(2000.0, Waveform::Sine),
-                    Oscillator::new(3170.0, Waveform::Sine), // inharmonic partial for metallic quality
+                    Oscillator::new(1200.0, Waveform::Sine),
+                    Oscillator::new(1900.0, Waveform::Sine), // inharmonic partial for metallic quality
                 ],
                 noise: None,
                 envelope: Envelope::new(0.001, 0.14, 0.0, 0.01),
@@ -237,7 +237,7 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 0.0,
                 freq_end: 0.0,
                 use_freq_sweep: false,
-                volume: 0.5,
+                volume: 0.3,
                 sustaining: false,
                 releasing: false,
             }
@@ -245,11 +245,11 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
 
         // ---- Damage --------------------------------------------------------
         SoundEvent::ShieldHit => {
-            // Bright metallic ring – high sine with medium decay, 0.2s
+            // Softer metallic ring – lower sine with medium decay, 0.2s
             SoundGenerator {
                 oscillators: vec![
-                    Oscillator::new(1800.0, Waveform::Sine),
-                    Oscillator::new(2400.0, Waveform::Sine),
+                    Oscillator::new(1200.0, Waveform::Sine),
+                    Oscillator::new(1600.0, Waveform::Sine),
                 ],
                 noise: None,
                 envelope: Envelope::new(0.002, 0.18, 0.0, 0.02),
@@ -259,7 +259,7 @@ pub fn create_sound(event: &SoundEvent) -> SoundGenerator {
                 freq_start: 0.0,
                 freq_end: 0.0,
                 use_freq_sweep: false,
-                volume: 0.5,
+                volume: 0.25,
                 sustaining: false,
                 releasing: false,
             }

@@ -772,8 +772,9 @@ impl Game {
             for action in actions {
                 match action {
                     InputAction::Confirm | InputAction::Fire => {
-                        briefing.advance();
-                        audio.play_sound(SoundEvent::UIConfirm);
+                        if briefing.advance() {
+                            audio.play_sound(SoundEvent::UIConfirm);
+                        }
                     }
                     InputAction::ThrustPrograde => {
                         briefing.set_fast_forward(true);
@@ -2655,10 +2656,10 @@ impl Game {
     fn build_briefing_hud(&self, vw: f32, vh: f32, s: f32) -> Vec<HudElement> {
         let mut els = Vec::new();
 
-        // Dark overlay
+        // Dark overlay — opaque enough to read text over the black hole
         els.push(HudElement::Rect {
             x: 0.0, y: 0.0, w: vw, h: vh,
-            color: [0.0, 0.0, 0.05, 0.8],
+            color: [0.0, 0.0, 0.05, 0.92],
         });
 
         // Level header — show "MISSION DEBRIEF" for debrief, "LEVEL N" for briefing
@@ -2685,7 +2686,7 @@ impl Game {
 
                 // Speaker name
                 let name_scale = 2.2 * s;
-                let margin = 80.0 * s;
+                let margin = 40.0 * s;
                 els.push(HudElement::Text {
                     x: margin,
                     y: vh * 0.35,
@@ -2694,8 +2695,9 @@ impl Game {
                     scale: name_scale,
                 });
 
-                // Dialogue text — wrap at ~50 chars per line
+                // Dialogue text — wrap across full width
                 let text_scale = 2.0 * s;
+                let margin = 40.0 * s;
                 let max_chars = ((vw - margin * 2.0) / (8.0 * text_scale)) as usize;
                 let max_chars = max_chars.max(20);
                 let mut y = vh * 0.35 + 14.0 * name_scale + 8.0 * s;

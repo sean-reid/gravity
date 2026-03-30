@@ -38,7 +38,7 @@ pub fn build_warning_elements(
             let text = "LOW FUEL";
             let scale = 2.0 * s;
             let x = 16.0 * s;
-            let y = vh - 120.0 * s;
+            let y = vh - 160.0 * s;
 
             elements.push(HudElement::Text {
                 x, y,
