@@ -347,7 +347,7 @@ impl Renderer {
             });
 
             self.hud_pipeline
-                .render(&mut pass, &self.queue, hud_rect_count, hud_text_count);
+                .render(&mut pass, hud_rect_count, hud_text_count);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
