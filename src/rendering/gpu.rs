@@ -55,9 +55,19 @@ pub async fn init_gpu(
         ..Default::default()
     });
 
-    let surface = instance
-        .create_surface(window.clone())
-        .expect("Failed to create surface");
+    let surface = match instance.create_surface(window.clone()) {
+        Ok(s) => s,
+        Err(_e) => {
+            #[cfg(target_arch = "wasm32")]
+            {
+                wasm_bindgen::throw_str("WebGPU not available. Enable it in your browser settings.");
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                panic!("Failed to create surface: {_e}");
+            }
+        }
+    };
 
     // Try high-performance first, fall back to low power, then fallback adapter
     let adapter = {
