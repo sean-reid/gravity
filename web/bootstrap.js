@@ -16,8 +16,14 @@ function showBrowserBlock() {
 }
 
 run().catch((e) => {
+    const msg = e && (e.message || String(e)) || '';
     // wasm-bindgen uses exceptions for control flow — ignore those
-    if (e && e.message && e.message.includes('exceptions for control flow')) {
+    if (msg.includes('exceptions for control flow')) {
+        return;
+    }
+    // GPU adapter not available — show browser block immediately
+    if (msg.includes('No GPU adapter') || msg.includes('WebGPU')) {
+        showBrowserBlock();
         return;
     }
     console.error('Game init failed:', e);

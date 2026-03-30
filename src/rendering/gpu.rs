@@ -59,27 +59,42 @@ pub async fn init_gpu(
         .create_surface(window.clone())
         .expect("Failed to create surface");
 
-    // Try high-performance first, fall back to any adapter
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
-            compatible_surface: Some(&surface),
-            force_fallback_adapter: false,
-        })
-        .await;
+    // Try high-performance first, fall back to low power, then fallback adapter
+    let adapter = {
+        let hp = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::HighPerformance,
+                compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
+            })
+            .await;
 
-    let adapter = match adapter {
-        Some(a) => a,
-        None => {
-            // Try again with low power preference
-            instance
-                .request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::LowPower,
-                    compatible_surface: Some(&surface),
-                    force_fallback_adapter: false,
-                })
-                .await
-                .expect("No GPU adapter available. Enable WebGPU in your browser settings.")
+        match hp {
+            Some(a) => a,
+            None => {
+                let lp = instance
+                    .request_adapter(&wgpu::RequestAdapterOptions {
+                        power_preference: wgpu::PowerPreference::LowPower,
+                        compatible_surface: Some(&surface),
+                        force_fallback_adapter: false,
+                    })
+                    .await;
+                match lp {
+                    Some(a) => a,
+                    None => {
+                        // On web: throw a JS error that bootstrap.js can catch.
+                        // On native: panic (no recovery possible).
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            wasm_bindgen::throw_str("No GPU adapter available. Enable WebGPU in your browser settings (chrome://flags/#enable-unsafe-webgpu)");
+                        }
+                        #[cfg(not(target_arch = "wasm32"))]
+                        {
+                            panic!("No GPU adapter available");
+                        }
+                    }
+                }
+            }
         }
     };
 
