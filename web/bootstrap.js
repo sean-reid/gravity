@@ -9,17 +9,15 @@ function showBrowserBlock() {
     if (block) block.style.display = 'flex';
 }
 
-// Catch unhandled errors from WASM (adapter failures, panics)
+// Catch ALL unhandled errors — if the game hasn't started, assume GPU failure
 window.addEventListener('error', (e) => {
-    const msg = e.message || '';
-    if (msg.includes('No GPU adapter') || msg.includes('unreachable')) {
+    if (!gameStarted) {
         e.preventDefault();
         showBrowserBlock();
     }
 });
 window.addEventListener('unhandledrejection', (e) => {
-    const msg = e.reason && (e.reason.message || String(e.reason)) || '';
-    if (msg.includes('No GPU adapter') || msg.includes('unreachable')) {
+    if (!gameStarted) {
         e.preventDefault();
         showBrowserBlock();
     }
@@ -33,7 +31,6 @@ async function run() {
 run().catch((e) => {
     const msg = e && (e.message || String(e)) || '';
     if (msg.includes('exceptions for control flow')) return;
-    console.error('Game init failed:', e);
     showBrowserBlock();
 });
 

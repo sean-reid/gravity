@@ -236,14 +236,14 @@ impl Renderer {
 
         // Acquire surface texture.
         let output = match self.surface.get_current_texture() {
-            Ok(t) => t,
-            Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
+            wgpu::CurrentSurfaceTexture::Success(t) | wgpu::CurrentSurfaceTexture::Suboptimal(t) => t,
+            wgpu::CurrentSurfaceTexture::Lost | wgpu::CurrentSurfaceTexture::Outdated => {
                 self.surface
                     .configure(&self.device, &self.surface_config);
                 return;
             }
-            Err(e) => {
-                log::error!("Surface error: {:?}", e);
+            other => {
+                log::error!("Surface error: {:?}", other);
                 return;
             }
         };
@@ -263,6 +263,7 @@ impl Renderer {
                 label: Some("scene_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &self.scene_texture_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -309,6 +310,7 @@ impl Renderer {
                 label: Some("postprocess_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
@@ -329,6 +331,7 @@ impl Renderer {
                 label: Some("hud_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &output_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,

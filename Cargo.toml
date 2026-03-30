@@ -16,7 +16,7 @@ native = ["cpal", "dirs", "ureq"]
 web = ["wasm-bindgen", "web-sys", "js-sys", "console_log", "console_error_panic_hook", "wasm-bindgen-futures", "getrandom/js"]
 
 [dependencies]
-wgpu = "23"
+wgpu = "29"
 winit = { version = "0.30", features = ["rwh_06"] }
 bytemuck = { version = "1", features = ["derive"] }
 pollster = "0.4"
