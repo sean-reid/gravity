@@ -1,7 +1,5 @@
 import init from './pkg/gravity_well_arena.js';
 
-// The game signals it's alive by rendering to the canvas.
-// If nothing happens after a timeout, show the browser compatibility message.
 let gameStarted = false;
 
 async function run() {
@@ -11,9 +9,9 @@ async function run() {
 
 function showBrowserBlock() {
     if (gameStarted) return;
-    const canvas = document.getElementById('game-canvas');
+    // Hide all canvases (winit may have created one)
+    document.querySelectorAll('canvas').forEach(c => c.style.display = 'none');
     const block = document.getElementById('browser-block');
-    if (canvas) canvas.style.display = 'none';
     if (block) block.style.display = 'flex';
 }
 
@@ -26,15 +24,17 @@ run().catch((e) => {
     showBrowserBlock();
 });
 
-// Fallback: if the game hasn't started after 8 seconds, assume failure
+// Fallback: if the game hasn't started after 3 seconds, assume GPU failure
 setTimeout(() => {
     if (!gameStarted) {
-        // Check if the canvas has content (non-zero size means wgpu is rendering)
-        const canvas = document.querySelector('canvas');
-        if (canvas && canvas.width > 0 && canvas.height > 0) {
-            gameStarted = true;
-            return;
+        // Check if any canvas is actually rendering
+        const canvases = document.querySelectorAll('canvas');
+        for (const c of canvases) {
+            if (c.width > 100 && c.height > 100) {
+                gameStarted = true;
+                return;
+            }
         }
         showBrowserBlock();
     }
-}, 8000);
+}, 3000);

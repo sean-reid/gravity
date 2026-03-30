@@ -59,14 +59,29 @@ pub async fn init_gpu(
         .create_surface(window.clone())
         .expect("Failed to create surface");
 
+    // Try high-performance first, fall back to any adapter
     let adapter = instance
         .request_adapter(&wgpu::RequestAdapterOptions {
             power_preference: wgpu::PowerPreference::HighPerformance,
             compatible_surface: Some(&surface),
             force_fallback_adapter: false,
         })
-        .await
-        .expect("Failed to find a suitable GPU adapter");
+        .await;
+
+    let adapter = match adapter {
+        Some(a) => a,
+        None => {
+            // Try again with low power preference
+            instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: false,
+                })
+                .await
+                .expect("No GPU adapter available. Enable WebGPU in your browser settings.")
+        }
+    };
 
     let (device, queue) = adapter
         .request_device(
