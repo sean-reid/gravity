@@ -8,14 +8,17 @@ pub const RAILGUN_RADIUS: f64 = 0.05;
 pub const RAILGUN_LIFETIME: f64 = 2.0;
 
 // -- Mass driver constants --
-pub const MASS_DRIVER_SPEED: f64 = 15.0;
+// Slow heavy slug (~0.8x orbital speed) that curves dramatically in gravity fields.
+// Mastering trick shots around the black hole is the skill ceiling.
+pub const MASS_DRIVER_SPEED: f64 = 3.0;
 pub const MASS_DRIVER_DAMAGE: f64 = 40.0;
-pub const MASS_DRIVER_RADIUS: f64 = 0.12;
-pub const MASS_DRIVER_LIFETIME: f64 = 5.0;
+pub const MASS_DRIVER_RADIUS: f64 = 0.15;
+pub const MASS_DRIVER_LIFETIME: f64 = 8.0;
 
 // -- Impulse rocket constants --
-pub const IMPULSE_ROCKET_SPEED: f64 = 10.0;
-pub const IMPULSE_ROCKET_DAMAGE: f64 = 25.0;
+// Slow tracking rocket (~0.5x orbital speed) — the kill comes from the orbital kick, not damage
+pub const IMPULSE_ROCKET_SPEED: f64 = 2.0;
+pub const IMPULSE_ROCKET_DAMAGE: f64 = 5.0;
 pub const IMPULSE_ROCKET_RADIUS: f64 = 0.1;
 pub const IMPULSE_ROCKET_LIFETIME: f64 = 6.0;
 pub const IMPULSE_ROCKET_TRACKING: f64 = 3.0;
