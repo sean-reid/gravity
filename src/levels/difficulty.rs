@@ -52,15 +52,15 @@ mod tests {
     }
 
     #[test]
-    fn bot_count_caps_at_thirty() {
-        assert_eq!(bot_count_for_level(100), 30);
+    fn bot_count_caps_at_twenty_five() {
+        assert_eq!(bot_count_for_level(100), 25);
     }
 
     #[test]
     fn bot_count_early() {
         assert_eq!(bot_count_for_level(1), 2);
         assert_eq!(bot_count_for_level(2), 2);
-        assert_eq!(bot_count_for_level(3), 3);
-        assert_eq!(bot_count_for_level(5), 4);
+        assert_eq!(bot_count_for_level(3), 2);
+        assert_eq!(bot_count_for_level(5), 3);
     }
 }

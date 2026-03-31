@@ -47,11 +47,11 @@ mod tests {
     #[test]
     fn test_base_stats_no_difficulty() {
         let stats = get_archetype_stats(&BotArchetype::Skirmisher, 0.0);
-        assert!((stats.health - 40.0).abs() < 1e-10);
-        assert!((stats.shields - 30.0).abs() < 1e-10);
+        assert!((stats.health - 28.0).abs() < 1e-10); // 40 * 0.7
+        assert!((stats.shields - 21.0).abs() < 1e-10); // 30 * 0.7
         assert!((stats.fuel - 60.0).abs() < 1e-10);
-        // At difficulty 0, decision interval is 2.5x base (0.3 * 2.5 = 0.75)
-        assert!((stats.decision_interval - 0.75).abs() < 1e-10);
+        // At difficulty 0, decision interval is 3.5x base (0.3 * 3.5 = 1.05)
+        assert!((stats.decision_interval - 1.05).abs() < 1e-10);
     }
 
     #[test]
@@ -73,9 +73,9 @@ mod tests {
     #[test]
     fn test_commander_stats() {
         let stats = get_archetype_stats(&BotArchetype::Commander, 0.5);
-        // 200 * 1.25 = 250
-        assert!((stats.health - 250.0).abs() < 1e-10);
-        assert!((stats.shields - 187.5).abs() < 1e-10);
+        // 200 * (0.7 + 0.8*0.5) = 200 * 1.1 = 220
+        assert!((stats.health - 220.0).abs() < 1e-10);
+        assert!((stats.shields - 165.0).abs() < 1e-10); // 150 * 1.1
     }
 
     #[test]

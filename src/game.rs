@@ -1611,8 +1611,7 @@ impl Game {
 
         // Apply beam damage if we hit a bot
         if let Some((bot_idx, _hit_pos)) = hit {
-            let target_tau = self.bots[bot_idx].tau;
-            let dmg = compute_beam_damage(dt_proper, target_tau);
+            let dmg = compute_beam_damage(dt_proper, self.player.tau);
             self.bots[bot_idx].apply_damage(dmg);
             self.level_stats.shots_hit += 1;
             self.level_stats.shots_fired += 1;

@@ -4,10 +4,10 @@ use super::Weapon;
 
 pub const COOLDOWN: f64 = 3.0;
 pub const FUEL_COST: f64 = 10.0;
-pub const UNLOCK_LEVEL: u32 = 12;
+pub const UNLOCK_LEVEL: u32 = 6;
 
 /// Slow tracking rocket that delivers an orbital kick on impact.
-/// Deals 25 damage and perturbs the target's orbit.
+/// Deals 5 HP direct damage; primary effect is orbital kick toward nearest BH.
 #[derive(Debug, Clone, Copy)]
 pub struct ImpulseRocket;
 
@@ -45,7 +45,7 @@ mod tests {
         let w = ImpulseRocket;
         assert!((w.cooldown() - 3.0).abs() < 1e-10);
         assert!((w.fuel_cost() - 10.0).abs() < 1e-10);
-        assert_eq!(w.unlock_level(), 12);
+        assert_eq!(w.unlock_level(), 6);
     }
 
     #[test]

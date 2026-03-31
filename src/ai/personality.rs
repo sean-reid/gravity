@@ -107,14 +107,14 @@ mod tests {
     #[test]
     fn test_skirmisher_easy() {
         let p = get_personality(&BotArchetype::Skirmisher, 0.0);
-        assert!((p.aggression - 0.2).abs() < 1e-10);
-        assert!((p.accuracy_error - 0.40).abs() < 1e-10);
+        assert!((p.aggression - 0.15).abs() < 1e-10);
+        assert!((p.accuracy_error - 0.55).abs() < 1e-10);
     }
 
     #[test]
     fn test_skirmisher_hard() {
         let p = get_personality(&BotArchetype::Skirmisher, 1.0);
-        assert!((p.accuracy_error - 0.03).abs() < 1e-10);
+        assert!((p.accuracy_error - 0.05).abs() < 1e-10);
     }
 
     #[test]

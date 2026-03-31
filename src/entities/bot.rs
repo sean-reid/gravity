@@ -142,8 +142,8 @@ mod tests {
     #[test]
     fn test_new_skirmisher() {
         let bot = Bot::new(BotArchetype::Skirmisher, Vec2::new(8.0, 0.0), Vec2::ZERO, 0.0);
-        assert!((bot.health - 40.0).abs() < 1e-10);
-        assert!((bot.shields - 30.0).abs() < 1e-10);
+        assert!((bot.health - 28.0).abs() < 1e-10); // 40 * 0.7 at d=0
+        assert!((bot.shields - 21.0).abs() < 1e-10); // 30 * 0.7 at d=0
         assert!(bot.alive);
     }
 
@@ -158,8 +158,8 @@ mod tests {
     fn test_bot_damage_shields_first() {
         let mut bot = Bot::new(BotArchetype::Diver, Vec2::ZERO, Vec2::ZERO, 0.0);
         bot.apply_damage(20.0);
-        assert!((bot.shields - 20.0).abs() < 1e-10);
-        assert!((bot.health - 50.0).abs() < 1e-10);
+        assert!((bot.shields - 8.0).abs() < 1e-10); // 28 - 20 at d=0 (40*0.7)
+        assert!((bot.health - 35.0).abs() < 1e-10); // 50*0.7 at d=0
     }
 
     #[test]
