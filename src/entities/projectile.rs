@@ -21,7 +21,7 @@ pub const IMPULSE_ROCKET_SPEED: f64 = 2.0;
 pub const IMPULSE_ROCKET_DAMAGE: f64 = 5.0;
 pub const IMPULSE_ROCKET_RADIUS: f64 = 0.1;
 pub const IMPULSE_ROCKET_LIFETIME: f64 = 6.0;
-pub const IMPULSE_ROCKET_TRACKING: f64 = 3.0;
+pub const IMPULSE_ROCKET_TRACKING: f64 = 5.5;
 
 // -- Gravity bomb constants --
 pub const GRAVITY_BOMB_SPEED: f64 = 8.0;
@@ -33,7 +33,10 @@ pub const GRAVITY_BOMB_ARM_TIME: f64 = 1.5;
 
 // -- Tidal mine constants --
 pub const TIDAL_MINE_SPEED: f64 = 6.0;
-pub const TIDAL_MINE_DAMAGE: f64 = 35.0;
+pub const TIDAL_MINE_BASE_DAMAGE: f64 = 20.0;
+pub const TIDAL_MINE_MAX_DAMAGE: f64 = 60.0;
+/// Altitude difference (in r_s) at which damage reaches max.
+pub const TIDAL_MINE_SCALE_FACTOR: f64 = 5.0;
 pub const TIDAL_MINE_RADIUS: f64 = 0.1;
 pub const TIDAL_MINE_LIFETIME: f64 = 20.0;
 pub const TIDAL_MINE_TRIGGER_RADIUS: f64 = 1.5;
@@ -220,7 +223,7 @@ impl Projectile {
             velocity,
             acceleration: Vec2::ZERO,
             radius: TIDAL_MINE_RADIUS,
-            damage: TIDAL_MINE_DAMAGE,
+            damage: TIDAL_MINE_BASE_DAMAGE,
             owner_is_player,
             tau_at_launch: ship_tau,
             lifetime: TIDAL_MINE_LIFETIME,

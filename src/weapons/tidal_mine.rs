@@ -7,7 +7,7 @@ pub const FUEL_COST: f64 = 5.0;
 pub const UNLOCK_LEVEL: u32 = 15;
 
 /// Deployable mine that settles into orbit and detonates on proximity.
-/// Deals 35 damage within trigger radius.
+/// Damage scales with altitude difference between mine and target (0-60 HP).
 #[derive(Debug, Clone, Copy)]
 pub struct TidalMine;
 

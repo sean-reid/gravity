@@ -17,7 +17,10 @@ use crate::entities::ship::{
     PlayerShip, ThrustDirection, SHIP_RADIUS, THRUST_MAGNITUDE, FUEL_THRUST_COST, MAX_TRAIL_LENGTH,
 };
 use crate::entities::bot::{Bot, BotArchetype, BOT_RADIUS, BOT_MAX_TRAIL_LENGTH};
-use crate::entities::projectile::{Projectile, ProjectileType};
+use crate::entities::projectile::{
+    Projectile, ProjectileType,
+    TIDAL_MINE_BASE_DAMAGE, TIDAL_MINE_MAX_DAMAGE, TIDAL_MINE_SCALE_FACTOR,
+};
 use crate::entities::effects::{
     Explosion, ParticleEffect, spawn_explosion_particles, spawn_thrust_particle,
     spawn_spaghettification_particles,
@@ -1690,21 +1693,48 @@ impl Game {
             }
 
             // Special: tidal mine settling into orbit
-            if proj.projectile_type == ProjectileType::TidalMine && !proj.mine_orbiting {
-                // After initial travel, try to stabilize at current altitude
-                let alt = proj.position.length();
-                if alt > 0.5 {
-                    proj.mine_altitude = alt;
-                    // Check if velocity is roughly circular (within 30%)
-                    let needed_v = if !gravity_sources.is_empty() {
-                        let total_mass: f64 = gravity_sources.iter().map(|g| g.1).sum();
-                        compute_circular_orbit_velocity(alt, total_mass, G)
+            if proj.projectile_type == ProjectileType::TidalMine {
+                // Compute altitude relative to nearest BH (works for binary systems)
+                if let Some(nearest) = gravity_sources.iter()
+                    .min_by(|a, b| a.0.distance_squared(proj.position)
+                        .partial_cmp(&b.0.distance_squared(proj.position))
+                        .unwrap_or(std::cmp::Ordering::Equal))
+                {
+                    let alt = proj.position.distance(nearest.0);
+                    let bh_mass = nearest.1;
+                    let bh_pos = nearest.0;
+
+                    if !proj.mine_orbiting {
+                        // Try to stabilize at current altitude
+                        if alt > 0.5 {
+                            proj.mine_altitude = alt;
+                            let needed_v = compute_circular_orbit_velocity(alt, bh_mass, G);
+                            let current_v = proj.velocity.length();
+                            if (current_v - needed_v).abs() / needed_v < 0.3 {
+                                proj.mine_orbiting = true;
+                                // Snap to circular orbit velocity at this altitude
+                                let radial = (proj.position - bh_pos).normalized();
+                                let prograde = Vec2::new(-radial.y, radial.x);
+                                if prograde.dot(proj.velocity) < 0.0 {
+                                    proj.velocity = -prograde * needed_v;
+                                } else {
+                                    proj.velocity = prograde * needed_v;
+                                }
+                            }
+                        }
                     } else {
-                        1.0
-                    };
-                    let current_v = proj.velocity.length();
-                    if (current_v - needed_v).abs() / needed_v < 0.3 {
-                        proj.mine_orbiting = true;
+                        // Active orbit maintenance: correct velocity toward circular orbit
+                        // at mine_altitude around nearest BH
+                        let needed_v = compute_circular_orbit_velocity(proj.mine_altitude, bh_mass, G);
+                        let radial = (proj.position - bh_pos).normalized();
+                        let mut prograde = Vec2::new(-radial.y, radial.x);
+                        if prograde.dot(proj.velocity) < 0.0 {
+                            prograde = -prograde;
+                        }
+                        // Gentle correction to maintain orbit
+                        let target_vel = prograde * needed_v;
+                        let correction_rate = 2.0; // how quickly to correct per second
+                        proj.velocity = proj.velocity + (target_vel - proj.velocity) * (correction_rate * proj_dt).min(1.0);
                     }
                 }
             }
@@ -1871,27 +1901,46 @@ impl Game {
             }
 
             // Tidal mine proximity trigger (against non-owners)
+            // Damage scales with altitude difference: same altitude = zero, large difference = heavy.
             if proj.projectile_type == ProjectileType::TidalMine && proj.mine_orbiting {
+                // Compute mine altitude relative to nearest BH
+                let mine_alt = self.black_holes.iter()
+                    .map(|bh| proj.position.distance(bh.position))
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                    .unwrap_or(proj.position.length());
+
                 if proj.owner_is_player {
-                    // Check against all bots
                     for (bi, bot) in self.bots.iter().enumerate() {
                         if bot.is_dead() {
                             continue;
                         }
                         let dist = proj.position.distance(bot.position);
                         if dist < proj.mine_trigger_radius {
+                            let target_alt = self.black_holes.iter()
+                                .map(|bh| bot.position.distance(bh.position))
+                                .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                                .unwrap_or(bot.position.length());
+                            let alt_diff = (mine_alt - target_alt).abs();
+                            let tidal_damage = (TIDAL_MINE_BASE_DAMAGE * alt_diff / TIDAL_MINE_SCALE_FACTOR)
+                                .min(TIDAL_MINE_MAX_DAMAGE);
                             tidal_mine_triggers.push(pi);
-                            bot_hits.push((pi, bi, proj.damage));
+                            bot_hits.push((pi, bi, tidal_damage));
                             break;
                         }
                     }
                 } else {
-                    // Bot mine triggers on player
                     if self.player.alive {
                         let dist = proj.position.distance(self.player.position);
                         if dist < proj.mine_trigger_radius {
+                            let target_alt = self.black_holes.iter()
+                                .map(|bh| self.player.position.distance(bh.position))
+                                .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                                .unwrap_or(self.player.position.length());
+                            let alt_diff = (mine_alt - target_alt).abs();
+                            let tidal_damage = (TIDAL_MINE_BASE_DAMAGE * alt_diff / TIDAL_MINE_SCALE_FACTOR)
+                                .min(TIDAL_MINE_MAX_DAMAGE);
                             tidal_mine_triggers.push(pi);
-                            player_hits.push((pi, proj.damage));
+                            player_hits.push((pi, tidal_damage));
                         }
                     }
                 }
@@ -1959,7 +2008,7 @@ impl Game {
                             .unwrap_or(std::cmp::Ordering::Equal))
                     {
                         let kick_dir = (nearest_bh.position - bot_pos).normalized();
-                        let kick_magnitude = 6.0; // strong push toward BH
+                        let kick_magnitude = 9.0;
                         self.bots[bi].velocity = self.bots[bi].velocity + kick_dir * kick_magnitude;
                     }
                 }
@@ -1998,7 +2047,7 @@ impl Game {
                             .unwrap_or(std::cmp::Ordering::Equal))
                     {
                         let kick_dir = (nearest_bh.position - self.player.position).normalized();
-                        let kick_magnitude = 6.0;
+                        let kick_magnitude = 9.0;
                         self.player.velocity = self.player.velocity + kick_dir * kick_magnitude;
                     }
                 }
